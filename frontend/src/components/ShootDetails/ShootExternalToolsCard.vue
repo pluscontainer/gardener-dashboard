@@ -17,7 +17,7 @@ limitations under the License.
 <template>
   <v-card v-if="items.length">
     <v-toolbar flat dark dense color="cyan darken-2">
-      <v-toolbar-title class="subtitle-1">External Tools</v-toolbar-title>
+      <v-toolbar-title class="text-subtitle-1">External Tools</v-toolbar-title>
     </v-toolbar>
     <v-list>
       <template v-for="({ title, url, icon = 'link' }, index) in items">

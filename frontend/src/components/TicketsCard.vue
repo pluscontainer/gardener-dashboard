@@ -29,7 +29,7 @@ limitations under the License.
     </template>
     <v-card v-else>
       <v-toolbar flat dark dense color="cyan darken-2">
-        <v-toolbar-title class="subtitle-1">Ticket</v-toolbar-title>
+        <v-toolbar-title class="text-subtitle-1">Ticket</v-toolbar-title>
       </v-toolbar>
       <v-card-actions class="d-flex justify-center">
         <v-btn text color="cyan darken-2" :href="createTicketLink" target="_blank" title="Create Ticket">

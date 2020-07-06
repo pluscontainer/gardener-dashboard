@@ -24,7 +24,7 @@ limitations under the License.
       >
         <v-card-title>
           <v-icon large dark>mdi-help-circle-outline</v-icon>
-          <span class="headline ml-5">{{title}}</span>
+          <span class="text-h5 ml-5">{{title}}</span>
         </v-card-title>
       </v-img>
 

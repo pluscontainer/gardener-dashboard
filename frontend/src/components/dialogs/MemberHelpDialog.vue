@@ -19,19 +19,19 @@ limitations under the License.
     <v-card :class="cardClass">
       <v-card-title class="dialog-title white--text align-center justify-start">
         <v-icon large dark>mdi-account-plus</v-icon>
-        <span class="headline ml-5">{{ title}}</span>
+        <span class="text-h5 ml-5">{{ title}}</span>
       </v-card-title>
       <v-card-text>
         <template v-if="isUserDialog">
-          <div class="title grey--text text--darken-1 my-4">Add users to your project.</div>
-          <p class="body-1">
+          <div class="text-h6 grey--text text--darken-1 my-4">Add users to your project.</div>
+          <p class="text-body-1">
             Adding users to your project allows you to collaborate across your team.
             Project users have full access to all resources within your project.
           </p>
         </template>
         <template v-if="isServiceDialog">
-          <div class="title grey--text text--darken-1 my-4">Add service accounts to your project.</div>
-          <p class="body-1">
+          <div class="text-h6 grey--text text--darken-1 my-4">Add service accounts to your project.</div>
+          <p class="text-body-1">
             Adding service accounts to your project allows you to automate processes in your project.
             Service accounts have full access to all resources within your project.
           </p>

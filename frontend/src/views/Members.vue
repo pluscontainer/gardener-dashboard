@@ -19,7 +19,7 @@ limitations under the License.
     <v-card class="mr-extra">
       <v-toolbar flat color="teal darken-2">
         <v-icon class="white--text pr-2">mdi-account</v-icon>
-        <v-toolbar-title class="subtitle-1 white--text">
+        <v-toolbar-title class="text-subtitle-1 white--text">
           Technical Contact
         </v-toolbar-title>
       </v-toolbar>
@@ -47,7 +47,7 @@ limitations under the License.
     <v-card class="mr-extra mt-6">
       <v-toolbar flat color="green darken-2">
         <v-icon class="white--text pr-2">mdi-account-multiple</v-icon>
-        <v-toolbar-title class="subtitle-1 white--text">
+        <v-toolbar-title class="text-subtitle-1 white--text">
           Project Users
         </v-toolbar-title>
         <v-spacer></v-spacer>
@@ -75,8 +75,8 @@ limitations under the License.
       </v-toolbar>
 
       <v-card-text v-if="!userList.length">
-        <div class="title grey--text text--darken-1 my-4">Add users to your project.</div>
-        <p class="body-1">
+        <div class="text-h6 grey--text text--darken-1 my-4">Add users to your project.</div>
+        <p class="text-body-1">
           Adding users to your project allows you to collaborate across your team.
           Project users have full access to all resources within your project.
         </p>
@@ -104,7 +104,7 @@ limitations under the License.
     <v-card class="mr-extra mt-6">
       <v-toolbar flat color="blue-grey">
         <v-icon class="white--text pr-2">mdi-monitor-multiple</v-icon>
-        <v-toolbar-title class="subtitle-1 white--text">
+        <v-toolbar-title class="text-subtitle-1 white--text">
           Service Accounts
         </v-toolbar-title>
         <v-spacer></v-spacer>
@@ -129,8 +129,8 @@ limitations under the License.
       </v-toolbar>
 
       <v-card-text v-if="!serviceAccountList.length">
-        <div class="title grey--text text--darken-1 my-4">Add service accounts to your project.</div>
-        <p class="body-1">
+        <div class="text-h6 grey--text text--darken-1 my-4">Add service accounts to your project.</div>
+        <p class="text-body-1">
           Adding service accounts to your project allows you to automate processes in your project.
           Service accounts have full access to all resources within your project.
         </p>
@@ -167,7 +167,7 @@ limitations under the License.
     <v-dialog v-model="kubeconfigDialog" persistent max-width="67%">
       <v-card>
         <v-card-title class="teal darken-2 grey--text text--lighten-4">
-          <div class="headline">Kubeconfig <code class="serviceAccount_name">{{currentServiceAccountDisplayName}}</code></div>
+          <div class="text-h5">Kubeconfig <code class="serviceAccount_name">{{currentServiceAccountDisplayName}}</code></div>
           <v-spacer></v-spacer>
           <v-btn icon class="grey--text text--lighten-4" @click.native="kubeconfigDialog = false">
             <v-icon>close</v-icon>

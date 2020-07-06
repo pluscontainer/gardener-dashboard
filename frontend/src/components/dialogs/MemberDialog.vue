@@ -19,7 +19,7 @@ limitations under the License.
     <v-card :class="cardClass">
       <v-card-title class="dialog-title white--text align-center justify-start">
         <v-icon large dark>mdi-account-plus</v-icon>
-        <span class="headline ml-5">{{title}}</span>
+        <span class="text-h5 ml-5">{{title}}</span>
       </v-card-title>
       <v-card-text>
         <v-container  class="pa-0 ma-0">

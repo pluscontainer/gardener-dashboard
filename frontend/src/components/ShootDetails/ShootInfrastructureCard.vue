@@ -17,7 +17,7 @@ limitations under the License.
 <template>
   <v-card>
     <v-toolbar flat dark dense color="cyan darken-2">
-      <v-toolbar-title class="subtitle-1">Infrastructure</v-toolbar-title>
+      <v-toolbar-title class="text-subtitle-1">Infrastructure</v-toolbar-title>
     </v-toolbar>
     <v-list>
       <v-list-item>
@@ -42,7 +42,7 @@ limitations under the License.
               class="cyan--text text--darken-2"
               :to="{ name: 'Secret', params: { name: shootSecretBindingName, namespace: shootNamespace } }"
             >
-              <span class="subtitle-1">{{shootSecretBindingName}}</span>
+              <span class="text-subtitle-1">{{shootSecretBindingName}}</span>
             </router-link>
             <span v-else>{{shootSecretBindingName}}</span>
           </v-list-item-title>

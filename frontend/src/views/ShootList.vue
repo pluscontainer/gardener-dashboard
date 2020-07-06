@@ -20,8 +20,8 @@ limitations under the License.
       <v-toolbar flat height="72" color="cyan darken-2">
         <img src="../assets/certified_kubernetes_white.svg" height="60" class="ml-1 mr-3">
         <v-toolbar-title class="white--text">
-          <div class="headline">Kubernetes Clusters</div>
-          <div class="subtitle-1">{{headlineSubtitle}}</div>
+          <div class="text-h5">Kubernetes Clusters</div>
+          <div class="text-subtitle-1">{{headlineSubtitle}}</div>
         </v-toolbar-title>
         <v-spacer></v-spacer>
         <v-text-field v-if="search || items.length > 3"
@@ -161,7 +161,7 @@ limitations under the License.
       <v-dialog v-model="clusterAccessDialog" max-width="600">
         <v-card>
           <v-card-title class="teal darken-1 grey--text text--lighten-4">
-            <div class="headline">Cluster Access <code class="cluster_name">{{currentName}}</code></div>
+            <div class="text-h5">Cluster Access <code class="cluster_name">{{currentName}}</code></div>
             <v-spacer></v-spacer>
             <v-btn icon class="grey--text text--lighten-4" @click.native="hideDialog">
               <v-icon>close</v-icon>

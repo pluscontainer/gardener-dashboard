@@ -41,10 +41,10 @@ limitations under the License.
         <v-card tile>
           <v-card-title primary-title>
             <div class="content">
-              <div class="title mb-2">Gardener</div>
+              <div class="text-h6 mb-2">Gardener</div>
               <v-progress-circular size="18" indeterminate v-if="!dashboardVersion"></v-progress-circular>
-              <div class="caption" v-if="!!gardenerVersion">API version {{gardenerVersion}}</div>
-              <div class="caption" v-if="!!dashboardVersion">Dashboard version {{dashboardVersion}}</div>
+              <div class="text-caption" v-if="!!gardenerVersion">API version {{gardenerVersion}}</div>
+              <div class="text-caption" v-if="!!dashboardVersion">Dashboard version {{dashboardVersion}}</div>
             </div>
           </v-card-title>
           <v-divider></v-divider>
@@ -98,9 +98,9 @@ limitations under the License.
         <v-card tile>
           <v-card-title primary-title>
             <div class="content">
-              <div class="title">{{displayName}}</div>
-              <div class="caption">{{username}}</div>
-              <div class="caption" v-if="isAdmin">Operator</div>
+              <div class="text-h6">{{displayName}}</div>
+              <div class="text-caption">{{username}}</div>
+              <div class="text-caption" v-if="isAdmin">Operator</div>
             </div>
           </v-card-title>
           <v-divider></v-divider>

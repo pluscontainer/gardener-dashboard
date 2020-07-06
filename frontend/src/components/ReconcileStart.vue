@@ -27,7 +27,7 @@ limitations under the License.
     <template v-slot:actionComponent>
       <v-row >
         <v-col>
-          <div class="subtitle-1 pt-4">Do you want to trigger a reconcile of your cluster outside of the regular reconciliation schedule?<br />
+          <div class="text-subtitle-1 pt-4">Do you want to trigger a reconcile of your cluster outside of the regular reconciliation schedule?<br />
           </div>
         </v-col>
       </v-row>

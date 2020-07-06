@@ -22,7 +22,7 @@ limitations under the License.
           <v-col class="pa-3">
             <v-card>
               <v-toolbar flat dark dense :color="color">
-                <v-toolbar-title class="subtitle-1">Details</v-toolbar-title>
+                <v-toolbar-title class="text-subtitle-1">Details</v-toolbar-title>
               </v-toolbar>
               <v-list>
                 <v-list-item>
@@ -97,7 +97,7 @@ limitations under the License.
                     <v-list-item-title>
                       <v-tooltip right>
                         <template v-slot:activator="{ on }">
-                          <span v-on="on" class="subtitle-1">{{createdAt}}</span>
+                          <span v-on="on" class="text-subtitle-1">{{createdAt}}</span>
                         </template>
                         <time-string :dateTime="creationTimestamp" :pointInTime="-1"></time-string>
                       </v-tooltip>
@@ -143,7 +143,7 @@ limitations under the License.
           <v-col v-if="canDeleteProject" class="pa-3">
             <v-card>
               <v-toolbar flat dark dense :color="color">
-                <v-toolbar-title class="subtitle-1">Lifecycle</v-toolbar-title>
+                <v-toolbar-title class="text-subtitle-1">Lifecycle</v-toolbar-title>
               </v-toolbar>
               <v-list>
                 <v-list-item>
@@ -172,7 +172,7 @@ limitations under the License.
           <v-col v-if="costObjectSettingEnabled" class="pa-3">
             <v-card>
               <v-toolbar flat dark dense :color="color">
-                <v-toolbar-title class="subtitle-1">Billing</v-toolbar-title>
+                <v-toolbar-title class="text-subtitle-1">Billing</v-toolbar-title>
               </v-toolbar>
               <v-list>
                 <v-list-item>
@@ -204,7 +204,7 @@ limitations under the License.
           <v-col v-if="isKubeconfigEnabled" class="pa-3">
             <v-card>
               <v-toolbar flat dark dense :color="color">
-                <v-toolbar-title class="subtitle-1">Access</v-toolbar-title>
+                <v-toolbar-title class="text-subtitle-1">Access</v-toolbar-title>
               </v-toolbar>
               <v-list>
                 <v-list-item>

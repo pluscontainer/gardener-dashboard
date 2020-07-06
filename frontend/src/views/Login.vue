@@ -59,7 +59,7 @@ limitations under the License.
     <v-dialog v-model="dialog" persistent max-width="480px">
       <v-card>
         <v-card-title class="orange lighten-1">
-          <span class="headline white--text">Login</span>
+          <span class="text-h5 white--text">Login</span>
         </v-card-title>
         <v-card-text>
           <v-text-field

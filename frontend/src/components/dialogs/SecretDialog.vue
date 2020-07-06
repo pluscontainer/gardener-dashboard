@@ -24,7 +24,7 @@ limitations under the License.
       >
         <v-card-title>
           <infra-icon v-model="infraIcon" :width="42"></infra-icon>
-          <span class="headline ml-5">{{title}}</span>
+          <span class="text-h5 ml-5">{{title}}</span>
         </v-card-title>
       </v-img>
       <v-card-text>
@@ -42,7 +42,7 @@ limitations under the License.
               ></v-text-field>
             </template>
             <template v-else>
-              <div class="title pb-4">{{secretName}}</div>
+              <div class="text-h6 pb-4">{{secretName}}</div>
             </template>
             </div>
 

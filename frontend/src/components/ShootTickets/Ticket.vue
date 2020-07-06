@@ -16,7 +16,7 @@ limitations under the License.
 
 <template>
   <v-card>
-    <v-card-title class="subtitle-1 white--text cyan darken-2 mt-4 ticketTitle">
+    <v-card-title class="text-subtitle-1 white--text cyan darken-2 mt-4 ticketTitle">
       Ticket {{ticketTitle}}<ticket-labels class="ml-2" :labels="ticket.data.labels"></ticket-labels>
     </v-card-title>
 

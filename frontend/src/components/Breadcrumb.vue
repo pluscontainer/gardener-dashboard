@@ -66,9 +66,9 @@ export default {
     textClass () {
       return (item) => {
         if (item.currentRoute) {
-          return 'breadcrumb title'
+          return 'breadcrumb text-h6'
         } else {
-          return 'breadcrumb subtitle-1 pointer'
+          return 'breadcrumb text-subtitle-1 pointer'
         }
       }
     },

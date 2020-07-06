@@ -19,7 +19,7 @@ limitations under the License.
     <v-card>
       <v-card-title class="dialog-title white--text align-center justify-start">
         <v-icon large dark>mdi-cube</v-icon>
-        <span class="headline ml-5">Create Project</span>
+        <span class="text-h5 ml-5">Create Project</span>
       </v-card-title>
       <v-card-text class="dialog-content">
         <form>

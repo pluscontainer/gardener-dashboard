@@ -136,7 +136,7 @@ limitations under the License.
             <v-icon class="white--text">mdi-home-outline</v-icon>
           </v-list-item-action>
           <v-list-item-content>
-            <v-list-item-title class="subtitle-1">Home</v-list-item-title>
+            <v-list-item-title class="text-subtitle-1">Home</v-list-item-title>
           </v-list-item-content>
         </v-list-item>
         <template v-if="namespace">
@@ -146,7 +146,7 @@ limitations under the License.
                 <v-icon small class="white--text">{{route.meta.menu.icon}}</v-icon>
               </v-list-item-action>
               <v-list-item-content>
-                <v-list-item-title class="subtitle-1" >{{route.meta.menu.title}}</v-list-item-title>
+                <v-list-item-title class="text-subtitle-1" >{{route.meta.menu.title}}</v-list-item-title>
               </v-list-item-content>
             </v-list-item>
           </template>
