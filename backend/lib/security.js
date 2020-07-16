@@ -27,7 +27,7 @@ const uuidv1 = require('uuid/v1')
 const base64url = require('base64url')
 const pRetry = require('p-retry')
 const pTimeout = require('p-timeout')
-const { authentication } = require('./services')
+const { authentication, authorization } = require('./services')
 const { Forbidden, Unauthorized } = require('./errors')
 const logger = require('./logger')
 const { sessionSecret, oidc = {} } = require('./config')
@@ -281,6 +281,11 @@ function authenticateSocket (options) {
     await cookieParserAsync(req, res)
     await authenticateAsync(req, res)
     const user = socket.client.user = req.user
+    try {
+      user.isAdmin = await authorization.isAdmin(user)
+    } catch (err) {
+      user.isAdmin = false
+    }
     return user
   }
 }

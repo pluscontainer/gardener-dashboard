@@ -100,11 +100,11 @@ limitations under the License.
       </v-tooltip>
     </td>
     <td v-if="this.headerVisible['ticketLabels']">
-      <template v-if="shootLastUpdatedTicketTimestamp && !shootTicketsLabels.length">
+      <template v-if="shootLastUpdatedTicketTimestamp && !shootTicketLabels.length">
         None
       </template>
       <template v-else>
-        <ticket-labels :labels="shootTicketsLabels"></ticket-labels>
+        <ticket-labels :labels="shootTicketLabels"></ticket-labels>
       </template>
     </td>
     <td class="action-button-group text-right nowrap" v-if="this.headerVisible['actions']">
@@ -183,7 +183,7 @@ export default {
   computed: {
     ...mapGetters([
       'latestUpdatedTicketByNameAndNamespace',
-      'ticketsLabels',
+      'ticketLabels',
       'canGetSecrets',
       'canDeleteShoots'
     ]),
@@ -236,8 +236,8 @@ export default {
     shootLastUpdatedTicket () {
       return getTimestampFormatted(this.shootLastUpdatedTicketTimestamp)
     },
-    shootTicketsLabels () {
-      return this.ticketsLabels(this.shootMetadata)
+    shootTicketLabels () {
+      return this.ticketLabels(this.shootMetadata)
     }
   },
   methods: {

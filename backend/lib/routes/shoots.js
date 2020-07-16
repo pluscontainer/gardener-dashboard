@@ -21,16 +21,35 @@ const _ = require('lodash')
 const config = require('../config')
 const { shoots } = require('../services')
 
-const router = module.exports = express.Router({
+const clusterScoped = express.Router()
+
+const namespaceScoped = express.Router({
   mergeParams: true
 })
 
-router.route('/')
+module.exports = {
+  namespaceScoped,
+  clusterScoped
+}
+
+clusterScoped.route('/')
+  .get(async (req, res, next) => {
+    try {
+      const user = req.user
+      const labelSelector = req.query.labelSelector
+      res.send(await shoots.listAllNamespaces({ user, labelSelector }))
+    } catch (err) {
+      next(err)
+    }
+  })
+
+namespaceScoped.route('/')
   .get(async (req, res, next) => {
     try {
       const user = req.user
       const namespace = req.params.namespace
-      res.send(await shoots.list({ user, namespace }))
+      const labelSelector = req.query.labelSelector
+      res.send(await shoots.list({ user, namespace, labelSelector }))
     } catch (err) {
       next(err)
     }
@@ -46,7 +65,7 @@ router.route('/')
     }
   })
 
-router.route('/:name')
+namespaceScoped.route('/:name')
   .get(async (req, res, next) => {
     try {
       const user = req.user
@@ -79,7 +98,7 @@ router.route('/:name')
     }
   })
 
-router.route('/:name/spec/kubernetes/version')
+namespaceScoped.route('/:name/spec/kubernetes/version')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -92,7 +111,7 @@ router.route('/:name/spec/kubernetes/version')
     }
   })
 
-router.route('/:name/spec/maintenance')
+namespaceScoped.route('/:name/spec/maintenance')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -105,7 +124,7 @@ router.route('/:name/spec/maintenance')
     }
   })
 
-router.route('/:name/spec/hibernation/enabled')
+namespaceScoped.route('/:name/spec/hibernation/enabled')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -118,7 +137,7 @@ router.route('/:name/spec/hibernation/enabled')
     }
   })
 
-router.route('/:name/spec/hibernation/schedules')
+namespaceScoped.route('/:name/spec/hibernation/schedules')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -131,7 +150,7 @@ router.route('/:name/spec/hibernation/schedules')
     }
   })
 
-router.route('/:name/spec/addons')
+namespaceScoped.route('/:name/spec/addons')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -144,7 +163,7 @@ router.route('/:name/spec/addons')
     }
   })
 
-router.route('/:name/spec/provider/workers')
+namespaceScoped.route('/:name/spec/provider/workers')
   .put(async (req, res, next) => {
     try {
       const user = req.user
@@ -157,7 +176,7 @@ router.route('/:name/spec/provider/workers')
     }
   })
 
-router.route('/:name/metadata/annotations')
+namespaceScoped.route('/:name/metadata/annotations')
   .patch(async (req, res, next) => {
     try {
       const user = req.user
@@ -170,7 +189,7 @@ router.route('/:name/metadata/annotations')
     }
   })
 
-router.route('/:name/info')
+namespaceScoped.route('/:name/info')
   .get(async (req, res, next) => {
     try {
       const user = req.user
@@ -182,7 +201,7 @@ router.route('/:name/info')
     }
   })
 
-router.route('/:name/seed-info')
+namespaceScoped.route('/:name/seed-info')
   .get(async (req, res, next) => {
     try {
       const user = req.user
@@ -195,7 +214,7 @@ router.route('/:name/seed-info')
   })
 
 if (_.get(config, 'frontend.features.kymaEnabled', false)) {
-  router.route('/:name/kyma')
+  namespaceScoped.route('/:name/kyma')
     .get(async (req, res, next) => {
       try {
         const user = req.user
@@ -208,7 +227,7 @@ if (_.get(config, 'frontend.features.kymaEnabled', false)) {
     })
 }
 
-router.route('/:name/spec/purpose')
+namespaceScoped.route('/:name/spec/purpose')
   .put(async (req, res, next) => {
     try {
       const user = req.user

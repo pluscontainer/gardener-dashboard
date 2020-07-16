@@ -21,8 +21,8 @@ axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'
 
 /* General Purpose */
 
-function getResource (url) {
-  return axios.get(url)
+function getResource (url, config) {
+  return axios.get(url, config)
 }
 
 function deleteResource (url) {
@@ -94,6 +94,29 @@ export function addShootAnnotation ({ namespace, name, data }) {
   return patchResource(`/api/namespaces/${namespace}/shoots/${name}/metadata/annotations`, data)
 }
 
+export function getShoots ({ namespace } = {}, config) {
+  let pathname = '/api'
+  if (namespace) {
+    pathname += '/namespaces/' + encodeURIComponent(namespace)
+  }
+  return getResource(pathname + '/shoots', config)
+}
+
+export function getUnhealthyShoots (options) {
+  const config = {
+    params: {
+      labelSelector: 'shoot.gardener.cloud/status!=healthy'
+    }
+  }
+  return getShoots(options, config)
+}
+
+export function getShoot ({ namespace, name }) {
+  namespace = encodeURIComponent(namespace)
+  name = encodeURIComponent(name)
+  return getResource(`/api/namespaces/${namespace}/shoots/${name}`)
+}
+
 export function getShootInfo ({ namespace, name }) {
   namespace = encodeURIComponent(namespace)
   name = encodeURIComponent(name)
@@ -157,6 +180,22 @@ export function updateShootPurpose ({ namespace, name, data }) {
   namespace = encodeURIComponent(namespace)
   name = encodeURIComponent(name)
   return updateResource(`/api/namespaces/${namespace}/shoots/${name}/spec/purpose`, data)
+}
+
+/* Tickets */
+
+export function getTickets () {
+  return getResource('/api/tickets')
+}
+
+export function getComments ({ namespace, projectName, name }) {
+  const params = { name }
+  if (projectName) {
+    params.projectName = projectName
+  } else if (namespace) {
+    params.namespace = namespace
+  }
+  return getResource('/api/tickets/comments', { params })
 }
 
 /* Cloud Profiles */

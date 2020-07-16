@@ -35,12 +35,13 @@ import split from 'lodash/split'
 import join from 'lodash/join'
 import set from 'lodash/set'
 import head from 'lodash/head'
+import keyBy from 'lodash/keyBy'
 import sample from 'lodash/sample'
 import isEmpty from 'lodash/isEmpty'
 import cloneDeep from 'lodash/cloneDeep'
+import throttle from 'lodash/throttle'
 import semver from 'semver'
-import store from '../'
-import { getShootInfo, getShootSeedInfo, createShoot, deleteShoot, getShootAddonKyma } from '@/utils/api'
+import { getShoot, getShoots, getUnhealthyShoots, getShootInfo, getShootSeedInfo, createShoot, deleteShoot, getShootAddonKyma } from '@/utils/api'
 import { getSpecTemplate, getDefaultZonesNetworkConfiguration, getControlPlaneZone } from '@/utils/createShoot'
 import { isNotFound } from '@/utils/error'
 import {
@@ -61,19 +62,16 @@ import { isUserError, errorCodesFromArray } from '@/utils/errorCodes'
 
 const uriPattern = /^([^:/?#]+:)?(\/\/[^/?#]*)?([^?#]*)(\?[^#]*)?(#.*)?/
 
-const keyForShoot = ({ name, namespace }) => {
-  return `${name}_${namespace}`
-}
-
-const findItem = ({ name, namespace }) => {
-  return state.shoots[keyForShoot({ name, namespace })]
-}
-
 // initial state
 const state = {
   shoots: {},
+  infos: {},
+  seedInfos: {},
+  addonKyma: {},
   sortedShoots: [],
-  filteredAndSortedShoots: [],
+  filteredShoots: [],
+  events: [],
+  sortRequired: false,
   sortParams: undefined,
   searchValue: undefined,
   selection: undefined,
@@ -84,52 +82,105 @@ const state = {
 
 // getters
 const getters = {
-  sortedItems () {
-    return state.filteredAndSortedShoots
+  sortedItems (state, getters) {
+    return map(state.filteredShoots, getters.itemByKey)
   },
-  itemByNameAndNamespace () {
-    return ({ namespace, name }) => {
-      return findItem({ name, namespace })
+  itemByKey (state) {
+    return key => {
+      const shoot = state.shoots[key]
+      if (shoot) {
+        return {
+          ...shoot,
+          info: state.infos[key],
+          seedInfo: state.seedInfos[key],
+          addonKyma: state.addonKyma[key]
+        }
+      }
     }
   },
-  selectedItem () {
+  itemByNamespaceAndName (state, getters) {
+    return ({ namespace, name }) => getters.itemByKey(getKey({ namespace, name }))
+  },
+  selectedItem (state, getters) {
     if (state.selection) {
-      return findItem(state.selection)
+      return getters.itemByKey(state.selection)
     }
   },
-  getShootListFilters () {
+  getShootListFilters (state) {
     return state.shootListFilters
   },
-  newShootResource () {
+  newShootResource (state) {
     return state.newShootResource
   },
-  initialNewShootResource () {
+  initialNewShootResource (state) {
     return state.initialNewShootResource
   }
 }
 
 // actions
 const actions = {
-  /**
-   * Return all shoots in the given namespace.
-   * This ends always in a server/backend call.
-   */
-  clearAll ({ commit, dispatch }) {
-    commit('CLEAR_ALL')
-    return getters.items
+  setSubscription ({ commit, rootState }, subscription) {
+    if (subscription) {
+      const namespace = rootState.namespace
+      if (namespace === '_all') {
+        const onlyShootsWithIssues = rootState.onlyShootsWithIssues
+        if (onlyShootsWithIssues) {
+          subscription.unhealthy = true
+        }
+      } else {
+        subscription.namespace = namespace
+      }
+      commit('SUBSCRIBE', subscription)
+    } else {
+      commit('UNSUBSCRIBE')
+    }
   },
-  create ({ dispatch, commit, rootState }, data) {
+  async subscribed ({ commit, state, rootState, rootGetters }) {
+    const subscription = state.subscription
+    if (subscription) {
+      commit('CLEAR_ALL')
+      commit('CLEAR_EVENTS')
+      commit('SET_SHOOTS_LOADING', true, { root: true })
+      const { namespace, name, unhealthy } = subscription
+      let items
+      if (namespace && name) {
+        const item = get(await getShoot({ namespace, name }), 'data')
+        items = [item]
+      } else if (namespace) {
+        items = get(await getShoots({ namespace }), 'data.items')
+      } else if (unhealthy) {
+        items = get(await getUnhealthyShoots(), 'data.items')
+      } else {
+        items = get(await getShoots(), 'data.items')
+      }
+      commit('RECEIVE', items)
+      updateSortedShoots({ commit, state, rootState, rootGetters })
+      commit('SET_SHOOTS_LOADING', false, { root: true })
+    }
+  },
+  unsubscribed ({ commit }) {
+    commit('CLEAR_ALL')
+  },
+  clearAll ({ commit }) {
+    commit('CLEAR_ALL')
+  },
+  handleEvent (context, event) {
+    const { commit } = context
+    commit('ADD_EVENT', event)
+    throttledProcessEvents(context)
+  },
+  create ({ rootState }, data) {
     const namespace = data.metadata.namespace || rootState.namespace
     return createShoot({ namespace, data })
   },
-  delete ({ dispatch, commit, rootState }, { name, namespace }) {
+  delete ({ commit }, { namespace, name }) {
     return deleteShoot({ namespace, name })
   },
   /**
    * Return the given info for a single shoot with the namespace/name.
    * This ends always in a server/backend call.
    */
-  async getInfo ({ commit, rootState }, { name, namespace }) {
+  async getInfo ({ commit }, { namespace, name }) {
     try {
       const { data: info } = await getShootInfo({ namespace, name })
       if (info.serverUrl) {
@@ -144,15 +195,12 @@ const actions = {
         const baseHost = info.seedShootIngressDomain
         info.grafanaUrlUsers = `https://gu-${baseHost}`
         info.grafanaUrlOperators = `https://go-${baseHost}`
-
         info.prometheusUrl = `https://p-${baseHost}`
-
         info.alertmanagerUrl = `https://au-${baseHost}`
-
         info.kibanaUrl = `https://k-${baseHost}`
       }
-      commit('RECEIVE_INFO', { name, namespace, info })
-      return info
+      const key = getKey({ namespace, name })
+      commit('RECEIVE_INFO', [key, info])
     } catch (error) {
       // shoot info not found -> ignore if KubernetesError
       if (isNotFound(error)) {
@@ -161,11 +209,11 @@ const actions = {
       throw error
     }
   },
-  async getSeedInfo ({ commit, rootState }, { name, namespace }) {
+  async getSeedInfo ({ commit }, { namespace, name }) {
     try {
       const { data: info } = await getShootSeedInfo({ namespace, name })
-      commit('RECEIVE_SEED_INFO', { name, namespace, info })
-      return info
+      const key = getKey({ namespace, name })
+      commit('RECEIVE_SEED_INFO', [key, info])
     } catch (error) {
       // shoot seed info not found -> ignore if KubernetesError
       if (isNotFound(error)) {
@@ -174,11 +222,11 @@ const actions = {
       throw error
     }
   },
-  async getAddonKyma ({ commit, rootState }, { name, namespace }) {
+  async getAddonKyma ({ commit }, { namespace, name }) {
     try {
-      const { data: addonKyma } = await getShootAddonKyma({ namespace, name })
-      commit('RECEIVE_ADDON_KYMA', { name, namespace, addonKyma })
-      return addonKyma
+      const { data: info } = await getShootAddonKyma({ namespace, name })
+      const key = getKey({ namespace, name })
+      commit('RECEIVE_ADDON_KYMA', [key, info])
     } catch (error) {
       // shoot addon kyma not found -> ignore if KubernetesError
       if (isNotFound(error)) {
@@ -187,182 +235,210 @@ const actions = {
       throw error
     }
   },
-  setSelection ({ commit, dispatch }, metadata) {
+  setSelection ({ commit, dispatch, state }, metadata) {
     if (!metadata) {
       return commit('SET_SELECTION', null)
     }
-    const item = findItem(metadata)
-    if (item) {
-      commit('SET_SELECTION', pick(metadata, ['namespace', 'name']))
-      if (!item.info) {
-        return dispatch('getInfo', { name: metadata.name, namespace: metadata.namespace })
+    const { namespace, name } = metadata
+    const key = getKey({ namespace, name })
+    if (getItemByKey(state, key)) {
+      commit('SET_SELECTION', { namespace, name })
+      if (!state.infos[key]) {
+        return dispatch('getInfo', { namespace, name })
       }
     }
   },
-  setListSortParams ({ commit, rootState }, options) {
+  setListSortParams ({ commit, state, rootState, rootGetters }, options) {
     const sortParams = pick(options, ['sortBy', 'sortDesc'])
     if (!isEqual(sortParams, state.sortParams)) {
-      commit('SET_SORTPARAMS', { rootState, sortParams })
+      commit('SET_SORT_PARAMS', sortParams)
+      updateSortedShoots({ commit, state, rootState, rootGetters })
     }
   },
-  setListSearchValue ({ commit, rootState }, searchValue) {
+  setListSearchValue ({ commit, state, rootState, rootGetters }, searchValue) {
     if (!isEqual(searchValue, state.searchValue)) {
-      commit('SET_SEARCHVALUE', { rootState, searchValue })
+      commit('SET_SEARCH_VALUE', searchValue)
+      updateFilteredShoots({ commit, state, rootState, rootGetters })
     }
   },
-  setShootListFilters ({ commit, rootState }, value) {
-    commit('SET_SHOOT_LIST_FILTERS', { rootState, value })
-    return state.shootListFilters
+  setShootListFilters ({ commit, state, rootState, rootGetters }, value) {
+    commit('SET_SHOOT_LIST_FILTERS', value)
+    updateFilteredShoots({ commit, state, rootState, rootGetters })
   },
-  setShootListFilter ({ commit, rootState }, filterValue) {
+  setShootListFilter ({ commit, state, rootState, rootGetters }, filterValue) {
     if (state.shootListFilters) {
-      commit('SET_SHOOT_LIST_FILTER', { rootState, filterValue })
-      return state.shootListFilters
+      commit('SET_SHOOT_LIST_FILTER', filterValue)
+      updateFilteredShoots({ commit, state, rootState, rootGetters })
     }
   },
-  setNewShootResource ({ commit }, data) {
-    commit('SET_NEW_SHOOT_RESOURCE', { data })
-
-    return state.newShootResource
+  setNewShootResource ({ commit }, shootResource) {
+    commit('SET_NEW_SHOOT_RESOURCE', shootResource)
   },
   resetNewShootResource ({ commit, rootState, rootGetters }) {
-    const shootResource = {
-      apiVersion: 'core.gardener.cloud/v1beta1',
-      kind: 'Shoot',
-      metadata: {
-        namespace: rootState.namespace
-      }
-    }
-
-    const infrastructureKind = head(rootGetters.sortedCloudProviderKindList)
-    set(shootResource, 'spec', getSpecTemplate(infrastructureKind))
-
-    const cloudProfileName = get(head(rootGetters.cloudProfilesByCloudProviderKind(infrastructureKind)), 'metadata.name')
-    set(shootResource, 'spec.cloudProfileName', cloudProfileName)
-
-    const secret = head(rootGetters.infrastructureSecretsByCloudProfileName(cloudProfileName))
-    set(shootResource, 'spec.secretBindingName', get(secret, 'metadata.bindingName'))
-
-    const region = head(rootGetters.regionsWithSeedByCloudProfileName(cloudProfileName))
-    set(shootResource, 'spec.region', region)
-
-    const loadBalancerProviderName = head(rootGetters.loadBalancerProviderNamesByCloudProfileNameAndRegion({ cloudProfileName, region }))
-    if (!isEmpty(loadBalancerProviderName)) {
-      set(shootResource, 'spec.provider.controlPlaneConfig.loadBalancerProvider', loadBalancerProviderName)
-    }
-    const secretDomain = get(secret, 'data.domainName')
-    const floatingPoolName = head(rootGetters.floatingPoolNamesByCloudProfileNameAndRegionAndDomain({ cloudProfileName, region, secretDomain }))
-    if (!isEmpty(floatingPoolName)) {
-      set(shootResource, 'spec.provider.infrastructureConfig.floatingPoolName', floatingPoolName)
-    }
-
-    const allLoadBalancerClassNames = rootGetters.loadBalancerClassNamesByCloudProfileName(cloudProfileName)
-    if (!isEmpty(allLoadBalancerClassNames)) {
-      const loadBalancerClassNames = [
-        includes(allLoadBalancerClassNames, 'default')
-          ? 'default'
-          : head(allLoadBalancerClassNames)
-      ]
-      set(shootResource, 'spec.provider.controlPlaneConfig.loadBalancerClasses', loadBalancerClassNames)
-    }
-
-    const partitionIDs = rootGetters.partitionIDsByCloudProfileNameAndRegion({ cloudProfileName, region })
-    const partitionID = head(partitionIDs)
-    if (!isEmpty(partitionID)) {
-      set(shootResource, 'spec.provider.infrastructureConfig.partitionID', partitionID)
-    }
-    const firewallImages = rootGetters.firewallImagesByCloudProfileName(cloudProfileName)
-    const firewallImage = head(firewallImages)
-    if (!isEmpty(firewallImage)) {
-      set(shootResource, 'spec.provider.infrastructureConfig.firewall.image', firewallImage)
-    }
-    const firewallSizes = map(rootGetters.firewallSizesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones: [partitionID] }), 'name')
-    const firewallSize = head(firewallSizes)
-    if (!isEmpty(firewallSize)) {
-      set(shootResource, 'spec.provider.infrastructureConfig.firewall.size', firewallImage)
-    }
-    const allFirewallNetworks = rootGetters.firewallNetworksByCloudProfileNameAndPartitionId({ cloudProfileName, partitionID })
-    const firewallNetworks = find(allFirewallNetworks, { key: 'internet' })
-    if (!isEmpty(firewallNetworks)) {
-      set(shootResource, 'spec.provider.infrastructureConfig.firewall.networks', firewallNetworks)
-    }
-
-    const name = shortRandomString(10)
-    set(shootResource, 'metadata.name', name)
-
-    const purpose = head(purposesForSecret(secret))
-    set(shootResource, 'spec.purpose', purpose)
-
-    const kubernetesVersion = rootGetters.defaultKubernetesVersionForCloudProfileName(cloudProfileName)
-    set(shootResource, 'spec.kubernetes.version', kubernetesVersion.version)
-
-    const allZones = rootGetters.zonesByCloudProfileNameAndRegion({ cloudProfileName, region })
-    const zones = allZones.length ? [sample(allZones)] : undefined
-    const zonesNetworkConfiguration = getDefaultZonesNetworkConfiguration(zones, infrastructureKind, allZones.length)
-    if (zonesNetworkConfiguration) {
-      set(shootResource, 'spec.provider.infrastructureConfig.networks.zones', zonesNetworkConfiguration)
-    }
-
-    const worker = omit(generateWorker(zones, cloudProfileName, region), ['id'])
-    const workers = [worker]
-    set(shootResource, 'spec.provider.workers', workers)
-
-    const controlPlaneZone = getControlPlaneZone(workers, infrastructureKind)
-    if (controlPlaneZone) {
-      set(shootResource, 'spec.provider.controlPlaneConfig.zone', controlPlaneZone)
-    }
-
-    const addons = {}
-    forEach(filter(shootAddonList, addon => addon.visible), addon => {
-      set(addons, [addon.name, 'enabled'], addon.enabled)
-    })
-    const kymaEnabled = get(addons, 'kyma.enabled', false)
-    delete addons.kyma
-    set(shootResource, 'spec.addons', addons)
-    if (rootGetters.isKymaFeatureEnabled && kymaEnabled) {
-      set(shootResource, 'metadata.annotations["experimental.addons.shoot.gardener.cloud/kyma"]', 'enabled')
-    }
-
-    const { utcBegin, utcEnd } = utcMaintenanceWindowFromLocalBegin({ localBegin: randomLocalMaintenanceBegin(), timezone: rootState.localTimezone })
-    const maintenance = {
-      timeWindow: {
-        begin: utcBegin,
-        end: utcEnd
-      },
-      autoUpdate: {
-        kubernetesVersion: true,
-        machineImageVersion: true
-      }
-    }
-    set(shootResource, 'spec.maintenance', maintenance)
-
-    let hibernationSchedule = get(rootState.cfg.defaultHibernationSchedule, purpose)
-    hibernationSchedule = map(hibernationSchedule, schedule => {
-      return {
-        ...schedule,
-        location: rootState.localTimezone
-      }
-    })
-    set(shootResource, 'spec.hibernation.schedules', hibernationSchedule)
-
-    commit('RESET_NEW_SHOOT_RESOURCE', shootResource)
-    return state.newShootResource
+    commit('RESET_NEW_SHOOT_RESOURCE', getInitialShootResource({ rootState, rootGetters }))
   }
+}
+
+// mutations
+const mutations = {
+  SUBSCRIBE (state, value) {
+    if (value) {
+      state.subscription = value
+    }
+  },
+  UNSUBSCRIBE (state) {
+    state.subscription = undefined
+  },
+  RECEIVE (state, items) {
+    state.shoots = keyBy(items, ({ metadata }) => getKey(metadata))
+  },
+  RECEIVE_INFO (state, [key, info]) {
+    const item = getItemByKey(state, key)
+    if (item !== undefined) {
+      Vue.set(state.infos, key, info)
+    }
+  },
+  RECEIVE_SEED_INFO (state, [key, info]) {
+    const item = getItemByKey(state, key)
+    if (item !== undefined) {
+      Vue.set(state.seedInfos, key, info)
+    }
+  },
+  RECEIVE_ADDON_KYMA (state, [key, info]) {
+    const item = getItemByKey(state, key)
+    if (item !== undefined) {
+      Vue.set(state.addonKyma, key, info)
+    }
+  },
+  PUT_ITEM (state, newItem) {
+    const key = getKey(newItem.metadata)
+    const oldItem = getItemByKey(state, key)
+    if (oldItem) {
+      if (oldItem.metadata.resourceVersion !== newItem.metadata.resourceVersion) {
+        if (isSortRequired(state, newItem, oldItem)) {
+          state.sortRequired = true
+        }
+        Vue.set(state.shoots, key, assign(oldItem, newItem))
+      }
+    } else {
+      state.sortRequired = true
+      Vue.set(state.shoots, key, newItem)
+    }
+  },
+  DELETE_ITEM (state, { metadata } = {}) {
+    const key = getKey(metadata)
+    if (getItemByKey(state, key)) {
+      state.sortRequired = true
+      Vue.delete(state.shoots, key)
+    }
+  },
+  CLEAR_ALL (state) {
+    state.shoots = {}
+    state.sortedShoots = []
+    state.filteredShoots = []
+  },
+  ADD_EVENT (state, event) {
+    state.events.push(event)
+  },
+  CLEAR_EVENTS () {
+    state.events = []
+  },
+  SET_SELECTION (state, metadata) {
+    state.selection = metadata
+  },
+  SET_SORTED_SHOOTS (state, items) {
+    state.sortedShoots = items
+  },
+  SET_FILTERED_SHOOTS (state, items) {
+    state.filteredShoots = items
+  },
+  SET_SORT_PARAMS (state, sortParams) {
+    state.sortParams = sortParams
+  },
+  SET_SEARCH_VALUE (state, searchValue) {
+    if (searchValue && searchValue.length > 0) {
+      state.searchValue = split(searchValue, ' ')
+    } else {
+      state.searchValue = undefined
+    }
+  },
+  SET_SHOOT_LIST_FILTERS (state, value) {
+    state.shootListFilters = value
+  },
+  SET_SHOOT_LIST_FILTER (state, { filter, value }) {
+    Vue.set(state.shootListFilters, filter, value)
+  },
+  SET_NEW_SHOOT_RESOURCE (state, value) {
+    state.newShootResource = value
+  },
+  RESET_NEW_SHOOT_RESOURCE (state, value) {
+    state.newShootResource = value
+    state.initialNewShootResource = cloneDeep(value)
+  }
+}
+
+const throttledProcessEvents = throttle(processEvents, 3000, { trailing: true })
+
+function processEvents ({ commit, state, rootState, rootGetters }) {
+  const onlyShootsWithIssues = rootState.namespace === '_all' && rootState.onlyShootsWithIssues
+  const events = state.events
+  commit('CLEAR_EVENTS')
+  for (const { type, object } of events) {
+    switch (type) {
+      case 'ADDED':
+      case 'MODIFIED': {
+        if (!onlyShootsWithIssues || shootHasIssue(object)) {
+          commit('PUT_ITEM', object)
+        }
+        break
+      }
+      case 'DELETED': {
+        commit('DELETE_ITEM', object)
+        break
+      }
+    }
+  }
+  if (state.sortRequired) {
+    updateSortedShoots({ commit, state, rootState, rootGetters })
+    commit('SET_SORT_REQUIRED', false)
+  }
+}
+
+function getKey ({ namespace, name }) {
+  return namespace + '/' + name
+}
+
+function getItemByKey (state, key) {
+  return state.shoots[key]
 }
 
 // Deep diff between two object, using lodash
-const difference = (object, base) => {
-  function changes (object, base) {
-    return transform(object, function (result, value, key) {
-      if (!isEqual(value, base[key])) {
-        result[key] = (isObject(value) && isObject(base[key])) ? changes(value, base[key]) : value
-      }
-    })
+function difference (object, baseObject) {
+  const iteratee = (accumulator, value, key) => {
+    const baseValue = baseObject[key]
+    if (!isEqual(value, baseValue)) {
+      accumulator[key] = isObject(value) && isObject(baseValue) ? difference(value, baseValue) : value
+    }
   }
-  return changes(object, base)
+  return transform(object, iteratee)
 }
 
-const getRawVal = (item, column) => {
+function isSortRequired (state, newItem, oldItem) {
+  const sortBy = head(get(state, 'sortParams.sortBy'))
+  if (includes(['name', 'infrastructure', 'project', 'createdAt', 'createdBy', 'ticketLabels'], sortBy)) {
+    return false // these values cannot change
+  }
+  if (sortBy === 'lastOperation') {
+    return true // don't check in this case as most put events will be lastOperation anyway
+  }
+  const rootGetters = {
+    ticketLabels () {}
+  }
+  const changes = difference(oldItem, newItem)
+  return !!getRawVal({ rootGetters }, changes, sortBy)
+}
+
+function getRawVal ({ rootGetters }, item, column) {
   const metadata = item.metadata
   const spec = item.spec
   switch (column) {
@@ -383,16 +459,16 @@ const getRawVal = (item, column) => {
     case 'seed':
       return get(item, 'spec.seedName')
     case 'ticketLabels': {
-      const labels = store.getters.ticketsLabels(metadata)
+      const labels = rootGetters.ticketLabels(metadata)
       return join(map(labels, 'name'), ' ')
     }
     default:
-      return metadata[column]
+      return get(metadata, column)
   }
 }
 
-const getSortVal = (item, sortBy) => {
-  const value = getRawVal(item, sortBy)
+function getSortVal ({ rootGetters }, item, sortBy) {
+  const value = getRawVal({ rootGetters }, item, sortBy)
   const status = item.status
   switch (sortBy) {
     case 'purpose':
@@ -448,28 +524,27 @@ const getSortVal = (item, sortBy) => {
     }
     case 'ticket': {
       const { namespace, name } = item.metadata
-      return store.getters.latestUpdatedTicketByNameAndNamespace({ namespace, name })
+      return rootGetters.latestUpdatedTicketByNameAndNamespace({ namespace, name })
     }
     default:
       return toLower(value)
   }
 }
 
-const shoots = (state) => {
-  return map(Object.keys(state.shoots), (key) => state.shoots[key])
-}
-
-const setSortedItems = (state, rootState) => {
+function getSortedKeys ({ state, rootGetters }) {
   const sortBy = head(get(state, 'sortParams.sortBy'))
   const sortDesc = get(state, 'sortParams.sortDesc', [false])
   const sortOrder = head(sortDesc) ? 'desc' : 'asc'
 
-  let sortedShoots = shoots(state)
+  let items = Object.values(state.shoots)
   if (sortBy) {
     const sortbyNameAsc = (a, b) => {
-      if (getRawVal(a, 'name') > getRawVal(b, 'name')) {
+      const nameA = getRawVal({ rootGetters }, a, 'name')
+      const nameB = getRawVal({ rootGetters }, b, 'name')
+
+      if (nameA > nameB) {
         return 1
-      } else if (getRawVal(a, 'name') < getRawVal(b, 'name')) {
+      } else if (nameA < nameB) {
         return -1
       }
       return 0
@@ -477,9 +552,9 @@ const setSortedItems = (state, rootState) => {
     const inverse = sortOrder === 'desc' ? -1 : 1
     switch (sortBy) {
       case 'k8sVersion': {
-        sortedShoots.sort((a, b) => {
-          const versionA = getRawVal(a, sortBy)
-          const versionB = getRawVal(b, sortBy)
+        items.sort((a, b) => {
+          const versionA = getRawVal({ rootGetters }, a, sortBy)
+          const versionB = getRawVal({ rootGetters }, b, sortBy)
 
           if (semver.gt(versionA, versionB)) {
             return 1 * inverse
@@ -492,9 +567,9 @@ const setSortedItems = (state, rootState) => {
         break
       }
       case 'readiness': {
-        sortedShoots.sort((a, b) => {
-          const readinessA = getSortVal(a, sortBy)
-          const readinessB = getSortVal(b, sortBy)
+        items.sort((a, b) => {
+          const readinessA = getSortVal({ rootGetters }, a, sortBy)
+          const readinessB = getSortVal({ rootGetters }, b, sortBy)
 
           if (readinessA === readinessB) {
             return sortbyNameAsc(a, b)
@@ -511,81 +586,89 @@ const setSortedItems = (state, rootState) => {
         break
       }
       default: {
-        sortedShoots = orderBy(sortedShoots, [item => getSortVal(item, sortBy), 'metadata.name'], [sortOrder, 'asc'])
+        items = orderBy(items, [
+          item => getSortVal({ rootGetters }, item, sortBy),
+          'metadata.name'
+        ], [
+          sortOrder,
+          'asc'
+        ])
       }
     }
   }
-  state.sortedShoots = sortedShoots
-  setFilteredAndSortedItems(state, rootState)
+  return map(items, item => getKey(item.metadata))
 }
 
-const setFilteredAndSortedItems = (state, rootState) => {
-  let items = state.sortedShoots
+function getFilteredKeys ({ state, rootState, rootGetters }) {
+  let keys = state.sortedShoots
   if (state.searchValue) {
-    const predicate = item => {
-      let found = true
-      forEach(state.searchValue, value => {
-        if (includes(getRawVal(item, 'name'), value)) {
-          return
+    const predicate = key => {
+      const item = getItemByKey(state, key)
+      for (const value of state.searchValue) {
+        if (includes(getRawVal({ rootGetters }, item, 'name'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'infrastructure'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'infrastructure'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'seed'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'seed'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'project'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'project'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'createdBy'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'createdBy'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'purpose'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'purpose'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'k8sVersion'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'k8sVersion'), value)) {
+          return true
         }
-        if (includes(getRawVal(item, 'ticketLabels'), value)) {
-          return
+        if (includes(getRawVal({ rootGetters }, item, 'ticketLabels'), value)) {
+          return true
         }
-        found = false
-      })
-      return found
+      }
+      return false
     }
-    items = filter(items, predicate)
+    keys = filter(keys, predicate)
   }
   if (rootState.namespace === '_all' && rootState.onlyShootsWithIssues) {
     if (get(state, 'shootListFilters.progressing', false)) {
-      const predicate = item => {
+      const predicate = key => {
+        const item = getItemByKey(state, key)
         return !isStatusProgressing(get(item, 'metadata', {}))
       }
-      items = filter(items, predicate)
+      keys = filter(keys, predicate)
     }
     if (get(state, 'shootListFilters.userIssues', false)) {
-      const predicate = item => {
+      const predicate = key => {
+        const item = getItemByKey(state, key)
         const lastErrors = get(item, 'status.lastErrors', [])
         const allLastErrorCodes = errorCodesFromArray(lastErrors)
         const conditions = get(item, 'status.conditions', [])
         const allConditionCodes = errorCodesFromArray(conditions)
         return !isUserError(allLastErrorCodes) && !isUserError(allConditionCodes)
       }
-      items = filter(items, predicate)
+      keys = filter(keys, predicate)
     }
     if (get(state, 'shootListFilters.deactivatedReconciliation', false)) {
-      const predicate = item => {
+      const predicate = key => {
+        const item = getItemByKey(state, key)
         return !isReconciliationDeactivated(get(item, 'metadata', {}))
       }
-      items = filter(items, predicate)
+      keys = filter(keys, predicate)
     }
     if (get(state, 'shootListFilters.hideTicketsWithLabel', false)) {
-      const predicate = item => {
+      const predicate = key => {
+        const item = getItemByKey(state, key)
         const hideClustersWithLabels = get(rootState.cfg, 'ticket.hideClustersWithLabels')
         if (!hideClustersWithLabels) {
           return true
         }
 
-        const ticketsForCluster = store.getters.ticketsByNamespaceAndName(get(item, 'metadata', {}))
+        const ticketsForCluster = rootGetters.ticketsByNamespaceAndName(get(item, 'metadata', {}))
         if (!ticketsForCluster.length) {
           return true
         }
@@ -597,139 +680,142 @@ const setFilteredAndSortedItems = (state, rootState) => {
         })
         return ticketsWithoutHideLabel.length > 0
       }
-      items = filter(items, predicate)
+      keys = filter(keys, predicate)
     }
   }
-
-  state.filteredAndSortedShoots = items
+  return keys
 }
 
-const putItem = (state, newItem) => {
-  const item = findItem(newItem.metadata)
-  if (item !== undefined) {
-    if (item.metadata.resourceVersion !== newItem.metadata.resourceVersion) {
-      const sortBy = get(state, 'sortParams.sortBy')
-      let sortRequired = true
-      if (sortBy === 'name' || sortBy === 'infrastructure' || sortBy === 'project' || sortBy === 'createdAt' || sortBy === 'createdBy') {
-        sortRequired = false // these values cannot change
-      } else if (sortBy !== 'lastOperation') { // don't check in this case as most put events will be lastOperation anyway
-        const changes = difference(item, newItem)
-        const sortBy = get(state, 'sortParams.sortBy')
-        if (!getRawVal(changes, sortBy)) {
-          sortRequired = false
-        }
-      }
-      Vue.set(state.shoots, keyForShoot(item.metadata), assign(item, newItem))
-      return sortRequired
-    }
-  } else {
-    newItem.info = undefined // register property to ensure reactivity
-    Vue.set(state.shoots, keyForShoot(newItem.metadata), newItem)
-    return true
-  }
+function updateSortedShoots ({ commit, state, rootState, rootGetters }) {
+  commit('SET_SORTED_SHOOTS', getSortedKeys({ state, rootState, rootGetters }))
+  commit('SET_FILTERED_SHOOTS', getFilteredKeys({ state, rootState, rootGetters }))
 }
 
-const deleteItem = (state, deletedItem) => {
-  const item = findItem(deletedItem.metadata)
-  let sortRequired = false
-  if (item !== undefined) {
-    Vue.delete(state.shoots, keyForShoot(item.metadata))
-    sortRequired = true
-  }
-  return sortRequired
+function updateFilteredShoots ({ commit, state, rootState, rootGetters }) {
+  commit('SET_FILTERED_SHOOTS', getFilteredKeys({ state, rootState, rootGetters }))
 }
 
-// mutations
-const mutations = {
-  RECEIVE_INFO (state, { namespace, name, info }) {
-    const item = findItem({ namespace, name })
-    if (item !== undefined) {
-      Vue.set(item, 'info', info)
+function getInitialShootResource ({ rootState, rootGetters }) {
+  const shootResource = {
+    apiVersion: 'core.gardener.cloud/v1beta1',
+    kind: 'Shoot',
+    metadata: {
+      namespace: rootState.namespace
     }
-  },
-  RECEIVE_SEED_INFO (state, { namespace, name, info }) {
-    const item = findItem({ namespace, name })
-    if (item !== undefined) {
-      Vue.set(item, 'seedInfo', info)
-    }
-  },
-  RECEIVE_ADDON_KYMA (state, { namespace, name, addonKyma }) {
-    const item = findItem({ namespace, name })
-    if (item !== undefined) {
-      Vue.set(item, 'addonKyma', addonKyma)
-    }
-  },
-  SET_SELECTION (state, metadata) {
-    state.selection = metadata
-  },
-  SET_SORTPARAMS (state, { rootState, sortParams }) {
-    state.sortParams = sortParams
-    setSortedItems(state, rootState)
-  },
-  SET_SEARCHVALUE (state, { rootState, searchValue }) {
-    if (searchValue && searchValue.length > 0) {
-      state.searchValue = split(searchValue, ' ')
-    } else {
-      state.searchValue = undefined
-    }
-    setFilteredAndSortedItems(state, rootState)
-  },
-  ITEM_PUT (state, { newItem, rootState }) {
-    const sortRequired = putItem(state, newItem)
-
-    if (sortRequired) {
-      setSortedItems(state, rootState)
-    }
-  },
-  HANDLE_EVENTS (state, { rootState, events }) {
-    let sortRequired = false
-    forEach(events, event => {
-      switch (event.type) {
-        case 'ADDED':
-        case 'MODIFIED':
-          if (rootState.namespace !== '_all' ||
-            !rootState.onlyShootsWithIssues ||
-            rootState.onlyShootsWithIssues === shootHasIssue(event.object)) {
-            // Do not add healthy shoots when onlyShootsWithIssues=true, this can happen when toggeling flag
-            if (putItem(state, event.object)) {
-              sortRequired = true
-            }
-          }
-          break
-        case 'DELETED':
-          if (deleteItem(state, event.object)) {
-            sortRequired = true
-          }
-          break
-        default:
-          console.error('undhandled event type', event.type)
-      }
-    })
-    if (sortRequired) {
-      setSortedItems(state, rootState)
-    }
-  },
-  CLEAR_ALL (state) {
-    state.shoots = {}
-    state.sortedShoots = []
-    state.filteredAndSortedShoots = []
-  },
-  SET_SHOOT_LIST_FILTERS (state, { rootState, value }) {
-    state.shootListFilters = value
-    setFilteredAndSortedItems(state, rootState)
-  },
-  SET_SHOOT_LIST_FILTER (state, { rootState, filterValue }) {
-    const { filter, value } = filterValue
-    state.shootListFilters[filter] = value
-    setFilteredAndSortedItems(state, rootState)
-  },
-  SET_NEW_SHOOT_RESOURCE (state, { data }) {
-    state.newShootResource = data
-  },
-  RESET_NEW_SHOOT_RESOURCE (state, shootResource) {
-    state.newShootResource = shootResource
-    state.initialNewShootResource = cloneDeep(shootResource)
   }
+
+  const infrastructureKind = head(rootGetters.sortedCloudProviderKindList)
+  set(shootResource, 'spec', getSpecTemplate(infrastructureKind))
+
+  const cloudProfileName = get(head(rootGetters.cloudProfilesByCloudProviderKind(infrastructureKind)), 'metadata.name')
+  set(shootResource, 'spec.cloudProfileName', cloudProfileName)
+
+  const secret = head(rootGetters.infrastructureSecretsByCloudProfileName(cloudProfileName))
+  set(shootResource, 'spec.secretBindingName', get(secret, 'metadata.bindingName'))
+
+  const region = head(rootGetters.regionsWithSeedByCloudProfileName(cloudProfileName))
+  set(shootResource, 'spec.region', region)
+
+  const loadBalancerProviderName = head(rootGetters.loadBalancerProviderNamesByCloudProfileNameAndRegion({ cloudProfileName, region }))
+  if (!isEmpty(loadBalancerProviderName)) {
+    set(shootResource, 'spec.provider.controlPlaneConfig.loadBalancerProvider', loadBalancerProviderName)
+  }
+  const secretDomain = get(secret, 'data.domainName')
+  const floatingPoolName = head(rootGetters.floatingPoolNamesByCloudProfileNameAndRegionAndDomain({ cloudProfileName, region, secretDomain }))
+  if (!isEmpty(floatingPoolName)) {
+    set(shootResource, 'spec.provider.infrastructureConfig.floatingPoolName', floatingPoolName)
+  }
+
+  const allLoadBalancerClassNames = rootGetters.loadBalancerClassNamesByCloudProfileName(cloudProfileName)
+  if (!isEmpty(allLoadBalancerClassNames)) {
+    const loadBalancerClassNames = [
+      includes(allLoadBalancerClassNames, 'default')
+        ? 'default'
+        : head(allLoadBalancerClassNames)
+    ]
+    set(shootResource, 'spec.provider.controlPlaneConfig.loadBalancerClasses', loadBalancerClassNames)
+  }
+
+  const partitionIDs = rootGetters.partitionIDsByCloudProfileNameAndRegion({ cloudProfileName, region })
+  const partitionID = head(partitionIDs)
+  if (!isEmpty(partitionID)) {
+    set(shootResource, 'spec.provider.infrastructureConfig.partitionID', partitionID)
+  }
+  const firewallImages = rootGetters.firewallImagesByCloudProfileName(cloudProfileName)
+  const firewallImage = head(firewallImages)
+  if (!isEmpty(firewallImage)) {
+    set(shootResource, 'spec.provider.infrastructureConfig.firewall.image', firewallImage)
+  }
+  const firewallSizes = map(rootGetters.firewallSizesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones: [partitionID] }), 'name')
+  const firewallSize = head(firewallSizes)
+  if (!isEmpty(firewallSize)) {
+    set(shootResource, 'spec.provider.infrastructureConfig.firewall.size', firewallImage)
+  }
+  const allFirewallNetworks = rootGetters.firewallNetworksByCloudProfileNameAndPartitionId({ cloudProfileName, partitionID })
+  const firewallNetworks = find(allFirewallNetworks, { key: 'internet' })
+  if (!isEmpty(firewallNetworks)) {
+    set(shootResource, 'spec.provider.infrastructureConfig.firewall.networks', firewallNetworks)
+  }
+
+  const name = shortRandomString(10)
+  set(shootResource, 'metadata.name', name)
+
+  const purpose = head(purposesForSecret(secret))
+  set(shootResource, 'spec.purpose', purpose)
+
+  const kubernetesVersion = rootGetters.defaultKubernetesVersionForCloudProfileName(cloudProfileName)
+  set(shootResource, 'spec.kubernetes.version', kubernetesVersion.version)
+
+  const allZones = rootGetters.zonesByCloudProfileNameAndRegion({ cloudProfileName, region })
+  const zones = allZones.length ? [sample(allZones)] : undefined
+  const zonesNetworkConfiguration = getDefaultZonesNetworkConfiguration(zones, infrastructureKind, allZones.length)
+  if (zonesNetworkConfiguration) {
+    set(shootResource, 'spec.provider.infrastructureConfig.networks.zones', zonesNetworkConfiguration)
+  }
+
+  const worker = omit(generateWorker(zones, cloudProfileName, region), ['id'])
+  const workers = [worker]
+  set(shootResource, 'spec.provider.workers', workers)
+
+  const controlPlaneZone = getControlPlaneZone(workers, infrastructureKind)
+  if (controlPlaneZone) {
+    set(shootResource, 'spec.provider.controlPlaneConfig.zone', controlPlaneZone)
+  }
+
+  const addons = {}
+  forEach(filter(shootAddonList, addon => addon.visible), addon => {
+    set(addons, [addon.name, 'enabled'], addon.enabled)
+  })
+  const kymaEnabled = get(addons, 'kyma.enabled', false)
+  delete addons.kyma
+  set(shootResource, 'spec.addons', addons)
+  if (rootGetters.isKymaFeatureEnabled && kymaEnabled) {
+    set(shootResource, 'metadata.annotations["experimental.addons.shoot.gardener.cloud/kyma"]', 'enabled')
+  }
+
+  const { utcBegin, utcEnd } = utcMaintenanceWindowFromLocalBegin({ localBegin: randomLocalMaintenanceBegin(), timezone: rootState.localTimezone })
+  const maintenance = {
+    timeWindow: {
+      begin: utcBegin,
+      end: utcEnd
+    },
+    autoUpdate: {
+      kubernetesVersion: true,
+      machineImageVersion: true
+    }
+  }
+  set(shootResource, 'spec.maintenance', maintenance)
+
+  let hibernationSchedule = get(rootState.cfg.defaultHibernationSchedule, purpose)
+  hibernationSchedule = map(hibernationSchedule, schedule => {
+    return {
+      ...schedule,
+      location: rootState.localTimezone
+    }
+  })
+  set(shootResource, 'spec.hibernation.schedules', hibernationSchedule)
+
+  return shootResource
 }
 
 export default {

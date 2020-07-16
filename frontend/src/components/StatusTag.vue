@@ -221,9 +221,9 @@ export default {
     }
   },
   methods: {
-    ...mapMutations([
-      'setCondition'
-    ]),
+    ...mapMutations({
+      setCondition: 'SET_CONDITION'
+    }),
     conditionMetadataFromType (type) {
       const condition = this.conditionCache[type]
       if (condition) {

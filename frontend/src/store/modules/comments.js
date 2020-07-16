@@ -14,67 +14,46 @@
 // limitations under the License.
 //
 
-import filter from 'lodash/filter'
+import Vue from 'vue'
 import findIndex from 'lodash/findIndex'
 import get from 'lodash/get'
-import head from 'lodash/head'
-import flatMap from 'lodash/flatMap'
+import groupBy from 'lodash/groupBy'
 import concat from 'lodash/concat'
 import orderBy from 'lodash/orderBy'
-import unionBy from 'lodash/unionBy'
-import { getTickets } from '@/utils/api'
+import { getComments } from '@/utils/api'
 
 // initial state
 const state = {
-  all: [],
+  all: {},
   subscription: undefined
 }
 
 // getters
 const getters = {
-  items (state) {
-    return state.all
-  },
-  itemsByProjectAndName (state) {
-    return (projectName, name) => {
-      const metadata = {
-        projectName,
-        state: 'open'
-      }
-      if (name) {
-        metadata.name = name
-      }
-      return filter(state.all, { metadata })
-    }
-  },
-  latestUpdated (state, getters) {
-    return (projectName, name) => {
-      const issues = getters.itemsByProjectAndName(projectName, name)
-      const latestUpdatedIssue = head(issues)
-      return get(latestUpdatedIssue, 'metadata.updated_at')
-    }
-  },
-  labels (state, getters) {
-    return (projectName, name) => {
-      const issues = getters.itemsByProjectAndName(projectName, name)
-      const labels = flatMap(issues, 'data.labels')
-      return unionBy(labels, 'id')
+  itemsByTicket (state) {
+    return number => {
+      return get(state.all, number)
     }
   }
 }
 
 // actions
 const actions = {
-  setSubscription ({ commit }, subscription) {
+  setSubscription ({ commit, rootState }, subscription) {
     if (subscription) {
+      subscription.namespace = rootState.namespace
       commit('SUBSCRIBE', subscription)
     } else {
       commit('UNSUBSCRIBE')
     }
   },
-  async subscribed ({ commit }) {
-    const items = get(await getTickets(), 'data.items')
-    commit('RECEIVE', items)
+  async subscribed ({ commit, rootState }) {
+    const subscription = state.subscription
+    if (subscription) {
+      const { namespace, name } = subscription
+      const items = get(await getComments({ namespace, name }), 'data.items')
+      commit('RECEIVE', items)
+    }
   },
   unsubscribed ({ commit }) {
     commit('CLEAR_ALL')
@@ -108,31 +87,39 @@ const mutations = {
     state.subscription = undefined
   },
   RECEIVE (state, items) {
-    state.all = orderByUpdatedAt(items)
+    state.all = groupBy(orderByUpdatedAt(items), 'metadata.number')
   },
   PUT_ITEM (state, item) {
-    const items = state.all
-    const key = get(item, 'metadata.number')
-    const index = findIndex(items, ['metadata.number', key])
+    const number = get(item, 'metadata.number')
+    if (!state.all[number]) {
+      return Vue.set(state.all, number, [item])
+    }
+    const items = state.all[number]
+    const key = get(item, 'metadata.id')
+    const index = findIndex(items, ['metadata.id', key])
     if (index !== -1) {
       const oldItem = items[index]
       if (get(oldItem, 'metadata.updated_at') <= get(item, 'metadata.updated_at')) {
         items.splice(index, 1, item)
       }
     } else {
-      state.all = orderByUpdatedAt(concat(items, item))
+      state.all[number] = orderByUpdatedAt(concat(items, item))
     }
   },
   DELETE_ITEM (state, item) {
-    const items = state.all
-    const key = get(item, 'metadata.number')
-    const index = findIndex(items, ['metadata.number', key])
+    const number = get(item, 'metadata.number')
+    if (!state.all[number]) {
+      return
+    }
+    const items = state.all[number]
+    const key = get(item, 'metadata.id')
+    const index = findIndex(items, ['metadata.id', key])
     if (index !== -1) {
       items.splice(index, 1)
     }
   },
   CLEAR_ALL (state) {
-    state.all = []
+    state.all = {}
   }
 }
 

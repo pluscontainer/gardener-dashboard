@@ -24,9 +24,10 @@ module.exports = {
   '/openapi': require('../openapi'),
   '/user': require('./user'),
   '/cloudprofiles': require('./cloudprofiles'),
-  '/shoots': require('./shoots'),
+  '/shoots': require('./shoots').clusterScoped,
+  '/tickets': require('./tickets'),
   '/namespaces': require('./namespaces'),
-  '/namespaces/:namespace/shoots': require('./shoots'),
+  '/namespaces/:namespace/shoots': require('./shoots').namespaceScoped,
   '/namespaces/:namespace/infrastructure-secrets': require('./infrastructureSecrets'),
   '/namespaces/:namespace/members': require('./members')
 }

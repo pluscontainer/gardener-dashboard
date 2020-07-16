@@ -33,40 +33,36 @@ async function deleteTickets ({ namespace, name }) {
   }
 }
 
-function toNamespacedEvents ({ type, object }) {
-  const { namespace, uid } = object.metadata
-  return {
-    kind: 'shoots',
-    namespaces: {
-      [namespace]: [{
-        type,
-        object,
-        objectKey: uid // objectKey used for throttling events on frontend (discard previous events for one batch for same objectKey)
-      }]
-    }
-  }
-}
-
 module.exports = (io, { shootsWithIssues = new Set() } = {}) => {
-  const nsp = io.of('/shoots')
   const emitter = dashboardClient['core.gardener.cloud'].shoots.watchListAllNamespaces()
   registerHandler(emitter, async event => {
     const { type, object } = event
-    const { namespace, name, uid } = object.metadata
+    const uid = object.metadata.uid
+    const namespace = encodeURIComponent(object.metadata.namespace)
+    const name = encodeURIComponent(object.metadata.name)
 
-    const namespacedEvents = toNamespacedEvents(event)
-    nsp.to(`shoots_${namespace}`).emit('namespacedEvents', namespacedEvents)
-    nsp.to(`shoot_${namespace}_${name}`).emit('namespacedEvents', namespacedEvents)
+    io.to(`subs://shoots/${namespace}/${name}`)
+      .to(`subs://shoots/${namespace}`)
+      .to('subs://shoots')
+      .emit('shoot', event)
 
     if (shootHasIssue(object)) {
-      nsp.to(`shoots_${namespace}_issues`).emit('namespacedEvents', namespacedEvents)
+      io.to(`subs://unhealthy.shoot/${namespace}`)
+        .to('subs://unhealthy.shoot')
+        .emit('shoot', event)
       if (!shootsWithIssues.has(uid)) {
         shootsWithIssues.add(uid)
       } else if (type === 'DELETED') {
         shootsWithIssues.delete(uid)
       }
     } else if (shootsWithIssues.has(uid)) {
-      nsp.to(`shoots_${namespace}_issues`).emit('namespacedEvents', toNamespacedEvents({ type: 'DELETED', object }))
+      const deletedEvent = {
+        type: 'DELETED',
+        object
+      }
+      io.to(`subs://unhealthy.shoots/${namespace}`)
+        .to('subs://unhealthy.shoots')
+        .emit('shoot', deletedEvent)
       shootsWithIssues.delete(uid)
     }
 

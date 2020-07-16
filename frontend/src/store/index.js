@@ -16,9 +16,7 @@
 
 import Vue from 'vue'
 import Vuex from 'vuex'
-import createLogger from 'vuex/dist/logger'
 
-import EmitterWrapper from '@/utils/Emitter'
 import {
   gravatarUrlGeneric,
   displayName,
@@ -29,7 +27,6 @@ import {
   getProjectName
 } from '@/utils'
 import { getSubjectRules, getKubeconfigData } from '@/utils/api'
-import reduce from 'lodash/reduce'
 import map from 'lodash/map'
 import flatMap from 'lodash/flatMap'
 import filter from 'lodash/filter'
@@ -38,7 +35,6 @@ import get from 'lodash/get'
 import includes from 'lodash/includes'
 import isEmpty from 'lodash/isEmpty'
 import some from 'lodash/some'
-import concat from 'lodash/concat'
 import compact from 'lodash/compact'
 import merge from 'lodash/merge'
 import difference from 'lodash/difference'
@@ -56,6 +52,7 @@ import toPairs from 'lodash/toPairs'
 import fromPairs from 'lodash/fromPairs'
 import isEqual from 'lodash/isEqual'
 import moment from 'moment-timezone'
+import semver from 'semver'
 
 import shoots from './modules/shoots'
 import cloudProfiles from './modules/cloudProfiles'
@@ -64,16 +61,18 @@ import draggable from './modules/draggable'
 import members from './modules/members'
 import infrastructureSecrets from './modules/infrastructureSecrets'
 import tickets from './modules/tickets'
-import semver from 'semver'
+import comments from './modules/comments'
+
+import createSocketPlugin from './plugins/socket'
 
 Vue.use(Vuex)
 
 const debug = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test'
 
 // plugins
-const plugins = []
+const plugins = [createSocketPlugin()]
 if (debug) {
-  plugins.push(createLogger())
+  plugins.push(Vuex.createLogger())
 }
 
 // initial state
@@ -89,6 +88,7 @@ const state = {
     evaluationError: null
   },
   onlyShootsWithIssues: true,
+  connectSocket: false,
   sidebar: true,
   user: null,
   redirectPath: null,
@@ -124,10 +124,6 @@ const state = {
       description: 'Indicates whether all system components in the kube-system namespace are up and running. Gardener manages these system components and should automatically take care that the components become healthy again.'
     }
   }
-}
-
-const getFilterValue = (state) => {
-  return state.namespace === '_all' && state.onlyShootsWithIssues ? 'issues' : null
 }
 
 const vendorNameFromImageName = imageName => {
@@ -491,15 +487,14 @@ const getters = {
     return state.projects.all
   },
   projectFromProjectList (state, getters) {
-    const predicate = project => project.metadata.namespace === state.namespace
-    return find(getters.projectList, predicate) || {}
+    return find(state.projects.all, ['metadata.namespace', state.namespace]) || {}
   },
   projectName (state, getters) {
     const project = getters.projectFromProjectList
     return get(project, 'metadata.name')
   },
   projectNamesFromProjectList (state, getters) {
-    return map(getters.projectList, 'metadata.name')
+    return map(state.projects.all, 'metadata.name')
   },
   costObjectSettings (state) {
     const costObject = state.cfg.costObject
@@ -675,30 +670,30 @@ const getters = {
   },
   shootByNamespaceAndName (state, getters) {
     return ({ namespace, name }) => {
-      return getters['shoots/itemByNameAndNamespace']({ namespace, name })
+      return getters['shoots/itemByNamespaceAndName']({ namespace, name })
     }
   },
   ticketsByNamespaceAndName (state, getters) {
     return ({ namespace, name }) => {
       const projectName = getProjectName({ namespace })
-      return getters['tickets/issues']({ projectName, name })
-    }
-  },
-  ticketCommentsByIssueNumber (state, getters) {
-    return ({ issueNumber }) => {
-      return getters['tickets/comments']({ issueNumber })
+      return getters['tickets/itemsByProjectAndName'](projectName, name)
     }
   },
   latestUpdatedTicketByNameAndNamespace (state, getters) {
     return ({ namespace, name }) => {
       const projectName = getProjectName({ namespace })
-      return getters['tickets/latestUpdated']({ projectName, name })
+      return getters['tickets/latestUpdated'](projectName, name)
     }
   },
-  ticketsLabels (state, getters) {
+  ticketLabels (state, getters) {
     return ({ namespace, name }) => {
       const projectName = getProjectName({ namespace })
-      return getters['tickets/labels']({ projectName, name })
+      return getters['tickets/labels'](projectName, name)
+    }
+  },
+  ticketCommentsByIssueNumber (state, getters) {
+    return ({ issueNumber }) => {
+      return getters['comments/itemsByTicket'](issueNumber)
     }
   },
   kubernetesVersions (state, getters) {
@@ -900,20 +895,13 @@ const actions = {
       })
   },
   clearIssues ({ dispatch, commit }) {
-    return dispatch('tickets/clearIssues')
+    return dispatch('tickets/clearAll')
       .catch(err => {
         dispatch('setError', err)
       })
   },
   clearComments ({ dispatch, commit }) {
-    return dispatch('tickets/clearComments')
-      .catch(err => {
-        dispatch('setError', err)
-      })
-  },
-  subscribeShoot ({ dispatch, commit }, { name, namespace }) {
-    return dispatch('shoots/clearAll')
-      .then(() => EmitterWrapper.shootEmitter.subscribeShoot({ name, namespace }))
+    return dispatch('comments/clearAll')
       .catch(err => {
         dispatch('setError', err)
       })
@@ -936,20 +924,26 @@ const actions = {
         dispatch('setError', err)
       })
   },
-  subscribeShoots ({ dispatch, commit, state }) {
-    return EmitterWrapper.shootsEmitter.subscribeShoots({ namespace: state.namespace, filter: getFilterValue(state) })
+  subscribeShoot ({ dispatch }, { name }) {
+    return dispatch('shoots/setSubscription', { name })
   },
-  subscribeComments ({ dispatch, commit }, { name, namespace }) {
-    return new Promise((resolve, reject) => {
-      EmitterWrapper.ticketCommentsEmitter.subscribeComments({ name, namespace })
-      resolve()
-    })
+  subscribeShoots ({ dispatch }) {
+    return dispatch('shoots/setSubscription', {})
   },
-  unsubscribeComments ({ dispatch, commit }) {
-    return new Promise((resolve, reject) => {
-      EmitterWrapper.ticketCommentsEmitter.unsubscribe()
-      resolve()
-    })
+  unsubscribeShoots ({ dispatch }) {
+    return dispatch('shoots/setSubscription', undefined)
+  },
+  subscribeTickets ({ dispatch }) {
+    return dispatch('tickets/setSubscription', {})
+  },
+  unsubscribeTickets ({ dispatch }) {
+    return dispatch('tickets/setSubscription', undefined)
+  },
+  subscribeComments ({ dispatch }, { name }) {
+    return dispatch('comments/setSubscription', { name })
+  },
+  unsubscribeComments ({ dispatch }) {
+    return dispatch('comments/setSubscription', undefined)
   },
   setSelectedShoot ({ dispatch }, metadata) {
     return dispatch('shoots/setSelection', metadata)
@@ -1077,7 +1071,7 @@ const actions = {
     }
 
     forEach(value.knownConditions, (conditionValue, conditionKey) => {
-      commit('setCondition', { conditionKey, conditionValue })
+      commit('SET_CONDITION', { conditionKey, conditionValue })
     })
 
     return state.cfg
@@ -1103,16 +1097,24 @@ const actions = {
       commit('SET_KUBECONFIG_DATA', data)
     }
   },
-  setOnlyShootsWithIssues ({ commit }, value) {
-    commit('SET_ONLYSHOOTSWITHISSUES', value)
+  async setOnlyShootsWithIssues ({ commit, dispatch }, value) {
+    commit('SET_ONLY_SHOOTS_WITH_ISSUES', value)
+    await dispatch('subscribeShoots')
     return state.onlyShootsWithIssues
   },
-  setUser ({ dispatch, commit }, value) {
-    commit('SET_USER', value)
+  setUser ({ commit }, value) {
+    if (value) {
+      commit('SET_USER', value)
+      commit('CONNECT')
+    } else {
+      commit('SET_USER', null)
+      commit('DISCONNECT')
+    }
     return state.user
   },
-  unsetUser ({ dispatch, commit }) {
+  unsetUser ({ commit }) {
     commit('SET_USER', null)
+    commit('DISCONNECT', false)
   },
   setSidebar ({ commit }, value) {
     commit('SET_SIDEBAR', value)
@@ -1137,13 +1139,18 @@ const actions = {
     }
     return state.shootsLoading
   },
-  setWebsocketConnectionError ({ commit }, { reason, reconnectAttempt }) {
-    commit('SET_WEBSOCKETCONNECTIONERROR', { reason, reconnectAttempt })
-    return state.websocketConnectionError
+  connected ({ commit, dispatch }) {
+    commit('SET_WEBSOCKET_CONNECTION_ERROR', null)
+    const topics = ['shoots', 'tickets', 'comments']
+    for (const topic of topics) {
+      commit(topic + '/SUBSCRIBE')
+    }
   },
-  unsetWebsocketConnectionError ({ commit }) {
-    commit('SET_WEBSOCKETCONNECTIONERROR', null)
-    return state.websocketConnectionError
+  disconnected ({ commit }, reason) {
+    commit('SET_WEBSOCKET_CONNECTION_ERROR', { reason })
+  },
+  reconnecting ({ commit }, attempt) {
+    commit('SET_WEBSOCKET_CONNECTION_ERROR', { reconnectAttempt: attempt })
   },
   setError ({ commit }, value) {
     commit('SET_ALERT', { message: get(value, 'message', ''), type: 'error' })
@@ -1186,18 +1193,17 @@ const mutations = {
   SET_KUBECONFIG_DATA (state, value) {
     state.kubeconfigData = value
   },
-  SET_ONLYSHOOTSWITHISSUES (state, value) {
+  SET_ONLY_SHOOTS_WITH_ISSUES (state, value) {
     state.onlyShootsWithIssues = value
-    // subscribe again for shoots as the filter has changed
-    EmitterWrapper.shootsEmitter.subscribeShoots({ namespace: state.namespace, filter: getFilterValue(state) })
   },
   SET_USER (state, value) {
     state.user = value
-    if (value) {
-      EmitterWrapper.connect()
-    } else {
-      EmitterWrapper.disconnect()
-    }
+  },
+  CONNECT (state) {
+    state.connectSocket = true
+  },
+  DISCONNECT (state) {
+    state.connectSocket = false
   },
   SET_SIDEBAR (state, value) {
     state.sidebar = value
@@ -1208,7 +1214,7 @@ const mutations = {
   SET_SHOOTS_LOADING (state, value) {
     state.shootsLoading = value
   },
-  SET_WEBSOCKETCONNECTIONERROR (state, value) {
+  SET_WEBSOCKET_CONNECTION_ERROR (state, value) {
     if (value) {
       state.websocketConnectionError = merge({}, state.websocketConnectionError, value)
     } else {
@@ -1221,7 +1227,7 @@ const mutations = {
   SET_ALERT_BANNER (state, value) {
     state.alertBanner = value
   },
-  setCondition (state, { conditionKey, conditionValue }) {
+  SET_CONDITION (state, { conditionKey, conditionValue }) {
     Vue.set(state.conditionCache, conditionKey, conditionValue)
   },
   SET_FOCUSED_ELEMENT_ID (state, value) {
@@ -1244,7 +1250,8 @@ const modules = {
   cloudProfiles,
   shoots,
   infrastructureSecrets,
-  tickets
+  tickets,
+  comments
 }
 
 const store = new Vuex.Store({
@@ -1255,36 +1262,6 @@ const store = new Vuex.Store({
   modules,
   strict: debug,
   plugins
-})
-
-const { shootsEmitter, shootEmitter, ticketIssuesEmitter, ticketCommentsEmitter } = EmitterWrapper
-
-/* Shoots */
-function filterNamespacedEvents (namespacedEvents) {
-  const concatEventsForNamespace = (accumulator, namespace) => concat(accumulator, namespacedEvents[namespace] || [])
-  return reduce(store.getters.currentNamespaces, concatEventsForNamespace, [])
-}
-shootsEmitter.on('shoots', namespacedEvents => {
-  store.commit('shoots/HANDLE_EVENTS', {
-    rootState: state,
-    events: filterNamespacedEvents(namespacedEvents)
-  })
-})
-shootEmitter.on('shoot', namespacedEvents => {
-  store.commit('shoots/HANDLE_EVENTS', {
-    rootState: state,
-    events: filterNamespacedEvents(namespacedEvents)
-  })
-})
-
-/* Ticket Issues */
-ticketIssuesEmitter.on('issues', events => {
-  store.commit('tickets/HANDLE_ISSUE_EVENTS', events)
-})
-
-/* Ticket Comments */
-ticketCommentsEmitter.on('comments', events => {
-  store.commit('tickets/HANDLE_COMMENTS_EVENTS', events)
 })
 
 export default store
