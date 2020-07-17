@@ -14,28 +14,21 @@
 // limitations under the License.
 //
 
-import Vue from 'vue'
-import Vuex from 'vuex'
+const state = {
+  shoots: {},
+  infos: {},
+  seedInfos: {},
+  addonKyma: {},
+  sortedShoots: [],
+  filteredShoots: [],
+  events: [],
+  sortRequired: false,
+  sortParams: undefined,
+  searchValue: undefined,
+  selection: undefined,
+  shootListFilters: undefined,
+  newShootResource: undefined,
+  initialNewShootResource: undefined
+}
 
-import state from './state'
-import getters from './getters'
-import actions from './actions'
-import mutations from './mutations'
-import modules from './modules'
-import plugins from './plugins'
-
-Vue.use(Vuex)
-
-const strict = process.env.NODE_ENV !== 'production'
-
-const store = new Vuex.Store({
-  state,
-  actions,
-  getters,
-  mutations,
-  modules,
-  plugins,
-  strict
-})
-
-export default store
+export default state

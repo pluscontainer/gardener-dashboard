@@ -16,21 +16,19 @@
 
 import Vuex from 'vuex'
 import { expect } from 'chai'
-import {
-  state,
-  actions,
-  getters,
-  mutations,
-  modules,
-  mapAccessRestrictionForInput
-} from '@/store'
+import state from '@/store/state'
+import getters from '@/store/getters'
+import actions from '@/store/actions'
+import mutations from '@/store/mutations'
+import modules from '@/store/modules'
+import { mapAccessRestrictionForInput } from '@/store/helpers'
 
 let store
 
 describe('Store.Shoots', function () {
   beforeEach(function () {
     const shootItems = {
-      shoot2_foo: {
+      'foo/shoot2': {
         metadata: {
           name: 'shoot2',
           namespace: 'foo'
@@ -59,7 +57,7 @@ describe('Store.Shoots', function () {
           ]
         }
       },
-      shoot1_foo: {
+      'foo/shoot1': {
         metadata: {
           name: 'shoot1',
           namespace: 'foo'
@@ -88,7 +86,7 @@ describe('Store.Shoots', function () {
           ]
         }
       },
-      shoot3_foo: {
+      'foo/shoot3': {
         metadata: {
           name: 'shoot3',
           namespace: 'foo'

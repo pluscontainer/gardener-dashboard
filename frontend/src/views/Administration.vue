@@ -310,13 +310,10 @@ export default {
       'memberList',
       'canPatchProject',
       'canDeleteProject',
-      'projectFromProjectList',
+      'project',
       'costObjectSettings',
       'isKubeconfigEnabled'
     ]),
-    project () {
-      return this.projectFromProjectList
-    },
     projectDetails () {
       return getProjectDetails(this.project)
     },

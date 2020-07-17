@@ -102,7 +102,7 @@ limitations under the License.
 import ShootVersionUpdate from '@/components/ShootVersion/ShootVersionUpdate'
 import GDialog from '@/components/dialogs/GDialog'
 import { updateShootVersion } from '@/utils/api'
-import { availableK8sUpdatesForShoot } from '@/utils'
+import { getNewerVersions } from '@/utils'
 import { shootItem } from '@/mixins/shootItem'
 import { errorDetailsFromError } from '@/utils/error'
 import { mapGetters } from 'vuex'
@@ -161,7 +161,7 @@ export default {
       return this.confirmRequired ? this.shootName : undefined
     },
     availableK8sUpdates () {
-      return availableK8sUpdatesForShoot(this.shootK8sVersion, this.shootCloudProfileName)
+      return getNewerVersions(this.kubernetesVersions(this.shootCloudProfileName), this.shootK8sVersion)
     },
     tooltipText () {
       if (this.k8sPatchAvailable) {

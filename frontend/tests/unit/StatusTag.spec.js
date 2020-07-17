@@ -19,8 +19,11 @@ import { shallowMount } from '@vue/test-utils'
 import Vue from 'vue'
 import Vuetify from 'vuetify'
 import Vuex from 'vuex'
+import state from '@/store/state'
+import getters from '@/store/getters'
+import actions from '@/store/actions'
+import mutations from '@/store/mutations'
 import StatusTag from '@/components/StatusTag.vue'
-import { state, actions, getters, mutations } from '@/store'
 
 Vue.use(Vuetify)
 Vue.use(Vuex)

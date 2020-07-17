@@ -68,7 +68,7 @@ import some from 'lodash/some'
 import get from 'lodash/get'
 import { mapGetters } from 'vuex'
 import { shootItem } from '@/mixins/shootItem'
-import { k8sVersionExpirationForShoot, expiringWorkerGroupsForShoot } from '@/utils'
+import { getVersionExpiration, getExpiringWorkerGroups } from '@/utils'
 
 export default {
   name: 'VerisonUpdateWarning',
@@ -97,15 +97,18 @@ export default {
       if (this.onlyMachineImageWarnings) {
         return undefined
       }
+      const allVersions = this.kubernetesVersions(this.shootCloudProfileName)
       const k8sAutoPatch = get(this.shootItem, 'spec.maintenance.autoUpdate.kubernetesVersion', false)
-      return k8sVersionExpirationForShoot(this.shootK8sVersion, this.shootCloudProfileName, k8sAutoPatch)
+      return getVersionExpiration(allVersions, this.shootK8sVersion, k8sAutoPatch)
     },
     expiredWorkerGroups () {
       if (this.onlyK8sWarnings) {
         return []
       }
+      const machineImages = this.machineImagesByCloudProfileName(this.shootCloudProfileName)
       const imageAutoPatch = get(this.shootItem, 'spec.maintenance.autoUpdate.machineImageVersion', false)
-      return expiringWorkerGroupsForShoot(this.shootWorkerGroups, this.shootCloudProfileName, imageAutoPatch)
+      const workerGroups = this.shootWorkerGroups
+      return getExpiringWorkerGroups(machineImages, workerGroups, imageAutoPatch)
     },
     isOverallStatusWarning () {
       const isError = some([this.k8sExpiration, ...this.expiredWorkerGroups], { isError: true })

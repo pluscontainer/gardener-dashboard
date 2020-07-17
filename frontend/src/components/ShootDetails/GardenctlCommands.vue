@@ -82,12 +82,8 @@ export default {
       'cfg'
     ]),
     ...mapGetters([
-      'projectFromProjectList'
+      'projectName'
     ]),
-    projectName () {
-      const project = this.projectFromProjectList
-      return get(project, 'metadata.name')
-    },
     commands () {
       return [
         {

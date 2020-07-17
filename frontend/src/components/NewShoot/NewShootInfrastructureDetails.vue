@@ -352,7 +352,7 @@ export default {
       'firewallImagesByCloudProfileName',
       'firewallNetworksByCloudProfileNameAndPartitionId',
       'firewallSizesByCloudProfileNameAndRegionAndZones',
-      'projectFromProjectList',
+      'projectName',
       'costObjectSettings'
     ]),
     validationErrors () {
@@ -361,10 +361,11 @@ export default {
           required: 'Secret is required',
           requiresCostObjectIfEnabled: () => {
             const projectName = get(this.secret, 'metadata.projectName')
-            const project = this.projectFromProjectList
-            const isSecretInProject = project.metadata.name === projectName
+            const isSecretInProject = this.projectName === projectName
 
-            return isSecretInProject ? `${this.costObjectTitle} is required. Go to the ADMINISTRATION page to edit the project and set the ${this.costObjectTitle}.` : `${this.costObjectTitle} is required and has to be set on the Project ${toUpper(projectName)}`
+            return isSecretInProject
+              ? `${this.costObjectTitle} is required. Go to the ADMINISTRATION page to edit the project and set the ${this.costObjectTitle}.`
+              : `${this.costObjectTitle} is required and has to be set on the Project ${toUpper(projectName)}`
           }
         },
         region: {

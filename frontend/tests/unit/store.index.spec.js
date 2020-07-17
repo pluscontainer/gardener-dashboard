@@ -15,9 +15,10 @@
 //
 
 import { expect } from 'chai'
-import { getters, firstItemMatchingVersionClassification } from '@/store'
 import find from 'lodash/find'
 import noop from 'lodash/noop'
+import getters from '@/store/getters'
+import { firstItemMatchingVersionClassification } from '@/store/helpers'
 
 global.console.error = noop // do not log (expected) errors in tests
 

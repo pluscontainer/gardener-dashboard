@@ -14,28 +14,16 @@
 // limitations under the License.
 //
 
-import Vue from 'vue'
 import Vuex from 'vuex'
 
-import state from './state'
-import getters from './getters'
-import actions from './actions'
-import mutations from './mutations'
-import modules from './modules'
-import plugins from './plugins'
+import createSocketPlugin from './socket'
 
-Vue.use(Vuex)
+const debug = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test'
 
-const strict = process.env.NODE_ENV !== 'production'
+const plugins = [createSocketPlugin()]
 
-const store = new Vuex.Store({
-  state,
-  actions,
-  getters,
-  mutations,
-  modules,
-  plugins,
-  strict
-})
+if (debug) {
+  plugins.push(Vuex.createLogger())
+}
 
-export default store
+export default plugins

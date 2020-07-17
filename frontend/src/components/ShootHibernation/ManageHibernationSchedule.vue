@@ -86,10 +86,10 @@ import get from 'lodash/get'
 import set from 'lodash/set'
 import find from 'lodash/find'
 import isEmpty from 'lodash/isEmpty'
+import { v4 as uuidv4 } from 'uuid'
+import { mapState } from 'vuex'
 import { purposeRequiresHibernationSchedule } from '@/utils'
 import { parsedScheduleEventsFromCrontabBlock, crontabFromParsedScheduleEvents } from '@/utils/hibernationSchedule'
-import { mapState } from 'vuex'
-const uuidv4 = require('uuid/v4')
 
 export default {
   name: 'hibernation-schedule',

@@ -67,14 +67,14 @@ limitations under the License.
 <script>
 import WorkerInputGeneric from '@/components/ShootWorkers/WorkerInputGeneric'
 import { mapGetters } from 'vuex'
-import { generateWorker, isZonedCluster } from '@/utils'
+import { isZonedCluster } from '@/utils'
 import forEach from 'lodash/forEach'
 import find from 'lodash/find'
 import map from 'lodash/map'
 import omit from 'lodash/omit'
 import assign from 'lodash/assign'
 import isEmpty from 'lodash/isEmpty'
-const uuidv4 = require('uuid/v4')
+import { v4 as uuidv4 } from 'uuid'
 
 export default {
   name: 'manage-workers',
@@ -104,6 +104,9 @@ export default {
       'zonesByCloudProfileNameAndRegion',
       'cloudProfileByName'
     ]),
+    ...mapGetters({
+      generateWorker: 'shoots/initialWorkerByCloudProfileNameAndRegionAndZones'
+    }),
     allMachineTypes () {
       return this.machineTypesByCloudProfileName({ cloudProfileName: this.cloudProfileName })
     },
@@ -134,7 +137,11 @@ export default {
       this.validateInput()
     },
     addWorker () {
-      const worker = generateWorker(this.availableZones, this.cloudProfileName, this.region)
+      const worker = generateWorker({
+        cloudProfileName: this.cloudProfileName,
+        region: this.region,
+        zones: this.availableZones
+      })
       this.internalWorkers.push(worker)
       this.validateInput()
     },

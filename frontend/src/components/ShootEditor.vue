@@ -130,8 +130,7 @@ limitations under the License.
 <script>
 import CopyBtn from '@/components/CopyBtn'
 import GAlert from '@/components/GAlert'
-import { mapState, mapGetters } from 'vuex'
-import { getProjectName } from '@/utils'
+import { mapGetters } from 'vuex'
 import { getShootSchemaDefinition } from '@/utils/api'
 import { ShootEditorCompletions } from '@/utils/shootEditorCompletions'
 import download from 'downloadjs'
@@ -212,10 +211,8 @@ export default {
   },
   mixins: [shootItem],
   computed: {
-    ...mapState([
-      'namespace'
-    ]),
     ...mapGetters([
+      'projectName',
       'canPatchShoots'
     ]),
     value () {
@@ -265,8 +262,7 @@ export default {
   methods: {
     getQualifiedName () {
       const name = get(this, 'value.metadata.name', 'unnamed')
-      const namespace = this.namespace
-      const projectName = getProjectName({ namespace })
+      const projectName = this.projectName
       return `shoot--${projectName}--${name}.yaml`
     },
     onDismissModificationWarning () {

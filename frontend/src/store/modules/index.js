@@ -14,28 +14,24 @@
 // limitations under the License.
 //
 
-import Vue from 'vue'
-import Vuex from 'vuex'
+import shoots from './shoots'
+import cloudProfiles from './cloudProfiles'
+import projects from './projects'
+import draggable from './draggable'
+import members from './members'
+import infrastructureSecrets from './infrastructureSecrets'
+import tickets from './tickets'
+import comments from './comments'
 
-import state from './state'
-import getters from './getters'
-import actions from './actions'
-import mutations from './mutations'
-import modules from './modules'
-import plugins from './plugins'
+const modules = {
+  projects,
+  members,
+  draggable,
+  cloudProfiles,
+  shoots,
+  infrastructureSecrets,
+  tickets,
+  comments
+}
 
-Vue.use(Vuex)
-
-const strict = process.env.NODE_ENV !== 'production'
-
-const store = new Vuex.Store({
-  state,
-  actions,
-  getters,
-  mutations,
-  modules,
-  plugins,
-  strict
-})
-
-export default store
+export default modules

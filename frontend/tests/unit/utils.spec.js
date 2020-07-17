@@ -15,10 +15,16 @@
 //
 
 import { expect } from 'chai'
-import utils from '@/utils'
 import { map } from 'lodash'
-
-const { canI, selectedImageIsNotLatest } = utils
+import {
+  canI,
+  isSelectedImageNotLatest,
+  getNewerVersions,
+  isVersionNotLatestPatch,
+  isVersionUpdatePathAvailable,
+  getVersionExpiration,
+  getExpiringWorkerGroups
+} from '@/utils'
 
 describe('utils', function () {
   describe('authorization', function () {
@@ -166,7 +172,7 @@ describe('utils', function () {
       })
     })
   })
-  describe('#availableK8sUpdatesForShoot', function () {
+  describe('#getNewerVersions', function () {
     const kubernetesVersions = [
       {
         classification: 'preview',
@@ -199,23 +205,15 @@ describe('utils', function () {
       }
     ]
 
-    beforeEach(() => {
-      utils.store.getters = {
-        kubernetesVersions: () => {
-          return kubernetesVersions
-        }
-      }
-    })
-
     it('should return available K8sUpdates for given version', function () {
-      const availableK8sUpdates = utils.availableK8sUpdatesForShoot('1.16.9', 'foo')
+      const availableK8sUpdates = getNewerVersions(kubernetesVersions, '1.16.9')
       expect(availableK8sUpdates.minor[0]).to.equal(kubernetesVersions[1])
       expect(availableK8sUpdates.patch[0]).to.equal(kubernetesVersions[4])
       expect(availableK8sUpdates.major[0]).to.equal(kubernetesVersions[0])
     })
 
     it('should differentiate between patch/minor/major available K8sUpdates for given version, filter out expired', function () {
-      const availableK8sUpdates = utils.availableK8sUpdatesForShoot('1.16.9', 'foo')
+      const availableK8sUpdates = getNewerVersions(kubernetesVersions, '1.16.9')
       expect(availableK8sUpdates.patch.length).to.equal(1)
       expect(availableK8sUpdates.minor.length).to.equal(2)
       expect(availableK8sUpdates.major.length).to.equal(1)
@@ -258,103 +256,103 @@ describe('utils', function () {
       }
     ]
 
-    beforeEach(() => {
-      utils.store.getters = {
-        kubernetesVersions: () => kubernetesVersions
-      }
-    })
+    describe('#isVersionNotLatestPatch', function () {
+      it('selected kubernetes version should be latest (multiple same minor)', function () {
+        const result = isVersionNotLatestPatch(kubernetesVersions, kubernetesVersions[1].version)
+        expect(result).to.be.false
+      })
 
-    it('#k8sVersionIsNotLatestPatch - selected kubernetes version should be latest (multiple same minor)', function () {
-      const result = utils.k8sVersionIsNotLatestPatch(kubernetesVersions[1].version, 'foo')
-      expect(result).to.be.false
-    })
+      it('selected kubernetes version should be latest (one minor, one major, one preview update available)', function () {
+        const result = isVersionNotLatestPatch(kubernetesVersions, kubernetesVersions[2].version)
+        expect(result).to.be.false
+      })
 
-    it('#k8sVersionIsNotLatestPatch - selected kubernetes version should be latest (one minor, one major, one preview update available)', function () {
-      const result = utils.k8sVersionIsNotLatestPatch(kubernetesVersions[2].version, 'foo')
-      expect(result).to.be.false
-    })
-
-    it('#k8sVersionIsNotLatestPatch - selected kubernetes version should not be latest', function () {
-      const result = utils.k8sVersionIsNotLatestPatch(kubernetesVersions[0].version, 'foo')
-      expect(result).to.be.true
-    })
-
-    it('#k8sVersionUpdatePathAvailable - selected kubernetes version should have update path (minor update available)', function () {
-      const result = utils.k8sVersionUpdatePathAvailable(kubernetesVersions[3].version, 'foo')
-      expect(result).to.be.true
-    })
-
-    it('#k8sVersionUpdatePathAvailable - selected kubernetes version should have update path (patch update available)', function () {
-      const result = utils.k8sVersionUpdatePathAvailable(kubernetesVersions[4].version, 'foo')
-      expect(result).to.be.true
-    })
-
-    it('#k8sVersionUpdatePathAvailable - selected kubernetes version should not have update path (minor update is preview)', function () {
-      const result = utils.k8sVersionUpdatePathAvailable(kubernetesVersions[5].version, 'foo')
-      expect(result).to.be.false
-    })
-
-    it('#k8sVersionUpdatePathAvailable - selected kubernetes version should not have update path (no next minor version update available)', function () {
-      const result = utils.k8sVersionUpdatePathAvailable(kubernetesVersions[7].version, 'foo')
-      expect(result).to.be.false
-    })
-
-    it('#k8sVersionExpirationForShoot - should be info level (patch avialable, auto update enabled))', function () {
-      const versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[0].version, 'foo', true)
-      expect(versionExpirationWarning).to.eql({
-        expirationDate: kubernetesVersions[0].expirationDate,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: false,
-        isInfo: true
+      it('selected kubernetes version should not be latest', function () {
+        const result = isVersionNotLatestPatch(kubernetesVersions, kubernetesVersions[0].version)
+        expect(result).to.be.true
       })
     })
 
-    it('#k8sVersionExpirationForShoot - should be warning level (patch available, auto update disabled))', function () {
-      const versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[0].version, 'foo', false)
-      expect(versionExpirationWarning).to.eql({
-        expirationDate: kubernetesVersions[0].expirationDate,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: true,
-        isInfo: false
+    describe('#isVersionUpdatePathAvailable', function () {
+      it('selected kubernetes version should have update path (minor update available)', function () {
+        const result = isVersionUpdatePathAvailable(kubernetesVersions, kubernetesVersions[3].version)
+        expect(result).to.be.true
+      })
+
+      it('selected kubernetes version should have update path (patch update available)', function () {
+        const result = isVersionUpdatePathAvailable(kubernetesVersions, kubernetesVersions[4].version)
+        expect(result).to.be.true
+      })
+
+      it('selected kubernetes version should not have update path (minor update is preview)', function () {
+        const result = isVersionUpdatePathAvailable(kubernetesVersions, kubernetesVersions[5].version)
+        expect(result).to.be.false
+      })
+
+      it('selected kubernetes version should not have update path (no next minor version update available)', function () {
+        const result = isVersionUpdatePathAvailable(kubernetesVersions, kubernetesVersions[7].version)
+        expect(result).to.be.false
       })
     })
 
-    it('#k8sVersionExpirationForShoot - should be warning level (update available, auto update enabled / disabled))', function () {
-      let versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[1].version, 'foo', true)
-      expect(versionExpirationWarning).to.eql({
-        expirationDate: kubernetesVersions[1].expirationDate,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: true,
-        isInfo: false
+    describe('#getVersionExpiration', function () {
+      it('should be info level (patch avialable, auto update enabled))', function () {
+        const versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[0].version, true)
+        expect(versionExpirationWarning).to.eql({
+          expirationDate: kubernetesVersions[0].expirationDate,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: false,
+          isInfo: true
+        })
       })
 
-      versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[1].version, 'foo', false)
-      expect(versionExpirationWarning).to.eql({
-        expirationDate: kubernetesVersions[1].expirationDate,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: true,
-        isInfo: false
+      it('should be warning level (patch available, auto update disabled))', function () {
+        const versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[0].version, false)
+        expect(versionExpirationWarning).to.eql({
+          expirationDate: kubernetesVersions[0].expirationDate,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: true,
+          isInfo: false
+        })
       })
-    })
 
-    it('#k8sVersionExpirationForShoot - should be error level (no update path available))', function () {
-      const versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[7].version, 'foo', false)
-      expect(versionExpirationWarning).to.eql({
-        expirationDate: kubernetesVersions[7].expirationDate,
-        isValidTerminationDate: false,
-        isError: true,
-        isWarning: false,
-        isInfo: false
+      it('should be warning level (update available, auto update enabled / disabled))', function () {
+        let versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[1].version, true)
+        expect(versionExpirationWarning).to.eql({
+          expirationDate: kubernetesVersions[1].expirationDate,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: true,
+          isInfo: false
+        })
+
+        versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[1].version, false)
+        expect(versionExpirationWarning).to.eql({
+          expirationDate: kubernetesVersions[1].expirationDate,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: true,
+          isInfo: false
+        })
       })
-    })
 
-    it('#k8sVersionExpirationForShoot - should be error level (version not expired))', function () {
-      const versionExpirationWarning = utils.k8sVersionExpirationForShoot(kubernetesVersions[8].version, 'foo', true)
-      expect(versionExpirationWarning).to.be.undefined
+      it('should be error level (no update path available))', function () {
+        const versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[7].version, false)
+        expect(versionExpirationWarning).to.eql({
+          expirationDate: kubernetesVersions[7].expirationDate,
+          isValidTerminationDate: false,
+          isError: true,
+          isWarning: false,
+          isInfo: false
+        })
+      })
+
+      it('should be error level (version not expired))', function () {
+        const versionExpirationWarning = getVersionExpiration(kubernetesVersions, kubernetesVersions[8].version, true)
+        expect(versionExpirationWarning).to.be.undefined
+      })
     })
   })
 
@@ -411,94 +409,92 @@ describe('utils', function () {
       })
     }
 
-    beforeEach(() => {
-      utils.store.getters = {
-        machineImagesByCloudProfileName: () => sampleMachineImages
-      }
-    })
+    describe('#isSelectedImageNotLatest', function () {
+      it('selected image should be latest (multiple exist, preview exists)', function () {
+        const result = isSelectedImageNotLatest(sampleMachineImages, sampleMachineImages[2])
+        expect(result).to.be.false
+      })
 
-    it('#selectedImageIsNotLatest - selected image should be latest (multiple exist, preview exists)', function () {
-      const result = selectedImageIsNotLatest(sampleMachineImages[2], sampleMachineImages)
-      expect(result).to.be.false
-    })
+      it('selected image should be latest (one exists)', function () {
+        const result = isSelectedImageNotLatest(sampleMachineImages, sampleMachineImages[3])
+        expect(result).to.be.false
+      })
 
-    it('#selectedImageIsNotLatest - selected image should be latest (one exists)', function () {
-      const result = selectedImageIsNotLatest(sampleMachineImages[3], sampleMachineImages)
-      expect(result).to.be.false
-    })
-
-    it('#selectedImageIsNotLatest - selected image should not be latest', function () {
-      const result = selectedImageIsNotLatest(sampleMachineImages[1], sampleMachineImages)
-      expect(result).to.be.true
-    })
-
-    it('#expiringWorkerGroupsForShoot - one should be info level (update available, auto update enabled))', function () {
-      const workers = generateWorkerGroups([sampleMachineImages[0], sampleMachineImages[1]])
-      const expiredWorkerGroups = utils.expiringWorkerGroupsForShoot(workers, 'foo', true)
-      expect(expiredWorkerGroups).to.be.an.instanceof(Array)
-      expect(expiredWorkerGroups).to.have.length(1)
-      expect(expiredWorkerGroups[0]).to.eql({
-        ...sampleMachineImages[0],
-        workerName: workers[0].name,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: false,
-        isInfo: true
+      it('selected image should not be latest', function () {
+        const result = isSelectedImageNotLatest(sampleMachineImages, sampleMachineImages[1])
+        expect(result).to.be.true
       })
     })
 
-    it('#expiringWorkerGroupsForShoot - one should be warning level (update available, auto update disabled))', function () {
-      const workers = generateWorkerGroups([sampleMachineImages[0]])
-      const expiredWorkerGroups = utils.expiringWorkerGroupsForShoot(workers, 'foo', false)
-      expect(expiredWorkerGroups).to.be.an.instanceof(Array)
-      expect(expiredWorkerGroups).to.have.length(1)
-      expect(expiredWorkerGroups[0]).to.eql({
-        ...sampleMachineImages[0],
-        workerName: workers[0].name,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: true,
-        isInfo: false
+    describe('#getExpiringWorkerGroups', function () {
+      it('one should be info level (update available, auto update enabled))', function () {
+        const workers = generateWorkerGroups([sampleMachineImages[0], sampleMachineImages[1]])
+        const expiredWorkerGroups = getExpiringWorkerGroups(sampleMachineImages, workers, true)
+        expect(expiredWorkerGroups).to.be.an.instanceof(Array)
+        expect(expiredWorkerGroups).to.have.length(1)
+        expect(expiredWorkerGroups[0]).to.eql({
+          ...sampleMachineImages[0],
+          workerName: workers[0].name,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: false,
+          isInfo: true
+        })
       })
-    })
 
-    it('#expiringWorkerGroupsForShoot - one should be info level, two error (update available, auto update enabled))', function () {
-      const workers = generateWorkerGroups([sampleMachineImages[0], sampleMachineImages[1], sampleMachineImages[3], sampleMachineImages[4]])
-      const expiredWorkerGroups = utils.expiringWorkerGroupsForShoot(workers, 'foo', true)
-      expect(expiredWorkerGroups).to.be.an.instanceof(Array)
-      expect(expiredWorkerGroups).to.have.length(3)
-      expect(expiredWorkerGroups[0]).to.eql({
-        ...sampleMachineImages[0],
-        workerName: workers[0].name,
-        isValidTerminationDate: true,
-        isError: false,
-        isWarning: false,
-        isInfo: true
+      it('one should be warning level (update available, auto update disabled))', function () {
+        const workers = generateWorkerGroups([sampleMachineImages[0]])
+        const expiredWorkerGroups = getExpiringWorkerGroups(sampleMachineImages, workers, false)
+        expect(expiredWorkerGroups).to.be.an.instanceof(Array)
+        expect(expiredWorkerGroups).to.have.length(1)
+        expect(expiredWorkerGroups[0]).to.eql({
+          ...sampleMachineImages[0],
+          workerName: workers[0].name,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: true,
+          isInfo: false
+        })
       })
-      expect(expiredWorkerGroups[1]).to.eql({
-        ...sampleMachineImages[3],
-        workerName: workers[2].name,
-        isValidTerminationDate: true,
-        isError: true,
-        isWarning: false,
-        isInfo: false,
-        isPreview: true
-      })
-      expect(expiredWorkerGroups[2]).to.eql({
-        ...sampleMachineImages[4],
-        workerName: workers[3].name,
-        isValidTerminationDate: false,
-        isError: true,
-        isWarning: false,
-        isInfo: false
-      })
-    })
 
-    it('#expiringWorkerGroupsForShoot - should be empty array (ignore versions without expiration date))', function () {
-      const workers = generateWorkerGroups([sampleMachineImages[1], sampleMachineImages[2]])
-      const expiredWorkerGroups = utils.expiringWorkerGroupsForShoot(workers, 'foo', true)
-      expect(expiredWorkerGroups).to.be.an.instanceof(Array)
-      expect(expiredWorkerGroups).to.have.length(0)
+      it('one should be info level, two error (update available, auto update enabled))', function () {
+        const workers = generateWorkerGroups([sampleMachineImages[0], sampleMachineImages[1], sampleMachineImages[3], sampleMachineImages[4]])
+        const expiredWorkerGroups = getExpiringWorkerGroups(sampleMachineImages, workers, true)
+        expect(expiredWorkerGroups).to.be.an.instanceof(Array)
+        expect(expiredWorkerGroups).to.have.length(3)
+        expect(expiredWorkerGroups[0]).to.eql({
+          ...sampleMachineImages[0],
+          workerName: workers[0].name,
+          isValidTerminationDate: true,
+          isError: false,
+          isWarning: false,
+          isInfo: true
+        })
+        expect(expiredWorkerGroups[1]).to.eql({
+          ...sampleMachineImages[3],
+          workerName: workers[2].name,
+          isValidTerminationDate: true,
+          isError: true,
+          isWarning: false,
+          isInfo: false,
+          isPreview: true
+        })
+        expect(expiredWorkerGroups[2]).to.eql({
+          ...sampleMachineImages[4],
+          workerName: workers[3].name,
+          isValidTerminationDate: false,
+          isError: true,
+          isWarning: false,
+          isInfo: false
+        })
+      })
+
+      it('should be empty array (ignore versions without expiration date))', function () {
+        const workers = generateWorkerGroups([sampleMachineImages[1], sampleMachineImages[2]])
+        const expiredWorkerGroups = getExpiringWorkerGroups(sampleMachineImages, workers, true)
+        expect(expiredWorkerGroups).to.be.an.instanceof(Array)
+        expect(expiredWorkerGroups).to.have.length(0)
+      })
     })
   })
 })

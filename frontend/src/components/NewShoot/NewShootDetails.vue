@@ -80,7 +80,7 @@ limitations under the License.
 import HintColorizer from '@/components/HintColorizer'
 import Purpose from '@/components/Purpose'
 import { mapGetters, mapState } from 'vuex'
-import { getValidationErrors, compileMarkdown, setDelayedInputFocus, k8sVersionIsNotLatestPatch } from '@/utils'
+import { getValidationErrors, compileMarkdown, setDelayedInputFocus, isVersionNotLatestPatch } from '@/utils'
 import { required, maxLength } from 'vuelidate/lib/validators'
 import { resourceName, noStartEndHyphen, noConsecutiveHyphen } from '@/utils/validators'
 import get from 'lodash/get'
@@ -136,6 +136,7 @@ export default {
       'cfg'
     ]),
     ...mapGetters([
+      'kubernetesVersions',
       'sortedKubernetesVersions',
       'defaultKubernetesVersionForCloudProfileName',
       'shootByNamespaceAndName',
@@ -164,7 +165,8 @@ export default {
       return join(hintText, ' / ')
     },
     versionIsNotLatestPatch () {
-      return k8sVersionIsNotLatestPatch(this.kubernetesVersion, this.cloudProfileName)
+      const allVersions = this.kubernetesVersions(this.cloudProfileName)
+      return isVersionNotLatestPatch(allVersions, this.kubernetesVersion)
     },
     sla () {
       return this.cfg.sla || {}

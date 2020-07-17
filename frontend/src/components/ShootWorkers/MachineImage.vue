@@ -39,7 +39,7 @@
 import VendorIcon from '@/components/VendorIcon'
 import HintColorizer from '@/components/HintColorizer'
 import { required } from 'vuelidate/lib/validators'
-import { getValidationErrors, selectedImageIsNotLatest } from '@/utils'
+import { getValidationErrors, isSelectedImageNotLatest } from '@/utils'
 import includes from 'lodash/includes'
 import map from 'lodash/map'
 import pick from 'lodash/pick'
@@ -117,7 +117,7 @@ export default {
       return join(hintText, ' / ')
     },
     selectedImageIsNotLatest () {
-      return selectedImageIsNotLatest(this.machineImage, this.machineImages)
+      return isSelectedImageNotLatest(this.machineImages, this.machineImage)
     }
   },
   validations,

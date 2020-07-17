@@ -14,14 +14,10 @@
 // limitations under the License.
 //
 
-import Vue from 'vue'
-import assign from 'lodash/assign'
 import forEach from 'lodash/forEach'
-import pick from 'lodash/pick'
 import omit from 'lodash/omit'
 import map from 'lodash/map'
 import get from 'lodash/get'
-import replace from 'lodash/replace'
 import transform from 'lodash/transform'
 import isEqual from 'lodash/isEqual'
 import isObject from 'lodash/isObject'
@@ -31,357 +27,42 @@ import padStart from 'lodash/padStart'
 import filter from 'lodash/filter'
 import includes from 'lodash/includes'
 import some from 'lodash/some'
-import split from 'lodash/split'
 import join from 'lodash/join'
 import set from 'lodash/set'
 import head from 'lodash/head'
-import keyBy from 'lodash/keyBy'
 import sample from 'lodash/sample'
 import isEmpty from 'lodash/isEmpty'
-import cloneDeep from 'lodash/cloneDeep'
-import throttle from 'lodash/throttle'
 import semver from 'semver'
-import { getShoot, getShoots, getUnhealthyShoots, getShootInfo, getShootSeedInfo, createShoot, deleteShoot, getShootAddonKyma } from '@/utils/api'
-import { getSpecTemplate, getDefaultZonesNetworkConfiguration, getControlPlaneZone } from '@/utils/createShoot'
-import { isNotFound } from '@/utils/error'
+import { v4 as uuidv4 } from 'uuid'
+
+import {
+  getSpecTemplate,
+  getDefaultZonesNetworkConfiguration,
+  getControlPlaneZone
+} from '@/utils/createShoot'
+
 import {
   isShootStatusHibernated,
   isReconciliationDeactivated,
   isStatusProgressing,
   getCreatedBy,
-  getProjectName,
   shootHasIssue,
   purposesForSecret,
   shortRandomString,
   shootAddonList,
   utcMaintenanceWindowFromLocalBegin,
   randomLocalMaintenanceBegin,
-  generateWorker
+  parseSize
 } from '@/utils'
-import { isUserError, errorCodesFromArray } from '@/utils/errorCodes'
 
-const uriPattern = /^([^:/?#]+:)?(\/\/[^/?#]*)?([^?#]*)(\?[^#]*)?(#.*)?/
+import {
+  isUserError,
+  errorCodesFromArray
+} from '@/utils/errorCodes'
 
-// initial state
-const state = {
-  shoots: {},
-  infos: {},
-  seedInfos: {},
-  addonKyma: {},
-  sortedShoots: [],
-  filteredShoots: [],
-  events: [],
-  sortRequired: false,
-  sortParams: undefined,
-  searchValue: undefined,
-  selection: undefined,
-  shootListFilters: undefined,
-  newShootResource: undefined,
-  initialNewShootResource: undefined
-}
-
-// getters
-const getters = {
-  sortedItems (state, getters) {
-    return map(state.filteredShoots, getters.itemByKey)
-  },
-  itemByKey (state) {
-    return key => {
-      const shoot = state.shoots[key]
-      if (shoot) {
-        return {
-          ...shoot,
-          info: state.infos[key],
-          seedInfo: state.seedInfos[key],
-          addonKyma: state.addonKyma[key]
-        }
-      }
-    }
-  },
-  itemByNamespaceAndName (state, getters) {
-    return ({ namespace, name }) => getters.itemByKey(getKey({ namespace, name }))
-  },
-  selectedItem (state, getters) {
-    if (state.selection) {
-      return getters.itemByKey(state.selection)
-    }
-  },
-  getShootListFilters (state) {
-    return state.shootListFilters
-  },
-  newShootResource (state) {
-    return state.newShootResource
-  },
-  initialNewShootResource (state) {
-    return state.initialNewShootResource
-  }
-}
-
-// actions
-const actions = {
-  setSubscription ({ commit, rootState }, subscription) {
-    if (subscription) {
-      const namespace = rootState.namespace
-      if (namespace === '_all') {
-        const onlyShootsWithIssues = rootState.onlyShootsWithIssues
-        if (onlyShootsWithIssues) {
-          subscription.unhealthy = true
-        }
-      } else {
-        subscription.namespace = namespace
-      }
-      commit('SUBSCRIBE', subscription)
-    } else {
-      commit('UNSUBSCRIBE')
-    }
-  },
-  async subscribed ({ commit, state, rootState, rootGetters }) {
-    const subscription = state.subscription
-    if (subscription) {
-      commit('CLEAR_ALL')
-      commit('CLEAR_EVENTS')
-      commit('SET_SHOOTS_LOADING', true, { root: true })
-      const { namespace, name, unhealthy } = subscription
-      let items
-      if (namespace && name) {
-        const item = get(await getShoot({ namespace, name }), 'data')
-        items = [item]
-      } else if (namespace) {
-        items = get(await getShoots({ namespace }), 'data.items')
-      } else if (unhealthy) {
-        items = get(await getUnhealthyShoots(), 'data.items')
-      } else {
-        items = get(await getShoots(), 'data.items')
-      }
-      commit('RECEIVE', items)
-      updateSortedShoots({ commit, state, rootState, rootGetters })
-      commit('SET_SHOOTS_LOADING', false, { root: true })
-    }
-  },
-  unsubscribed ({ commit }) {
-    commit('CLEAR_ALL')
-  },
-  clearAll ({ commit }) {
-    commit('CLEAR_ALL')
-  },
-  handleEvent (context, event) {
-    const { commit } = context
-    commit('ADD_EVENT', event)
-    throttledProcessEvents(context)
-  },
-  create ({ rootState }, data) {
-    const namespace = data.metadata.namespace || rootState.namespace
-    return createShoot({ namespace, data })
-  },
-  delete ({ commit }, { namespace, name }) {
-    return deleteShoot({ namespace, name })
-  },
-  /**
-   * Return the given info for a single shoot with the namespace/name.
-   * This ends always in a server/backend call.
-   */
-  async getInfo ({ commit }, { namespace, name }) {
-    try {
-      const { data: info } = await getShootInfo({ namespace, name })
-      if (info.serverUrl) {
-        const [, scheme, host] = uriPattern.exec(info.serverUrl)
-        const authority = `//${replace(host, /^\/\//, '')}`
-        const pathname = info.dashboardUrlPath
-        info.dashboardUrl = [scheme, authority, pathname].join('')
-        info.dashboardUrlText = [scheme, host].join('')
-      }
-
-      if (info.seedShootIngressDomain) {
-        const baseHost = info.seedShootIngressDomain
-        info.grafanaUrlUsers = `https://gu-${baseHost}`
-        info.grafanaUrlOperators = `https://go-${baseHost}`
-        info.prometheusUrl = `https://p-${baseHost}`
-        info.alertmanagerUrl = `https://au-${baseHost}`
-        info.kibanaUrl = `https://k-${baseHost}`
-      }
-      const key = getKey({ namespace, name })
-      commit('RECEIVE_INFO', [key, info])
-    } catch (error) {
-      // shoot info not found -> ignore if KubernetesError
-      if (isNotFound(error)) {
-        return
-      }
-      throw error
-    }
-  },
-  async getSeedInfo ({ commit }, { namespace, name }) {
-    try {
-      const { data: info } = await getShootSeedInfo({ namespace, name })
-      const key = getKey({ namespace, name })
-      commit('RECEIVE_SEED_INFO', [key, info])
-    } catch (error) {
-      // shoot seed info not found -> ignore if KubernetesError
-      if (isNotFound(error)) {
-        return
-      }
-      throw error
-    }
-  },
-  async getAddonKyma ({ commit }, { namespace, name }) {
-    try {
-      const { data: info } = await getShootAddonKyma({ namespace, name })
-      const key = getKey({ namespace, name })
-      commit('RECEIVE_ADDON_KYMA', [key, info])
-    } catch (error) {
-      // shoot addon kyma not found -> ignore if KubernetesError
-      if (isNotFound(error)) {
-        return
-      }
-      throw error
-    }
-  },
-  setSelection ({ commit, dispatch, state }, metadata) {
-    if (!metadata) {
-      return commit('SET_SELECTION', null)
-    }
-    const { namespace, name } = metadata
-    const key = getKey({ namespace, name })
-    if (getItemByKey(state, key)) {
-      commit('SET_SELECTION', { namespace, name })
-      if (!state.infos[key]) {
-        return dispatch('getInfo', { namespace, name })
-      }
-    }
-  },
-  setListSortParams ({ commit, state, rootState, rootGetters }, options) {
-    const sortParams = pick(options, ['sortBy', 'sortDesc'])
-    if (!isEqual(sortParams, state.sortParams)) {
-      commit('SET_SORT_PARAMS', sortParams)
-      updateSortedShoots({ commit, state, rootState, rootGetters })
-    }
-  },
-  setListSearchValue ({ commit, state, rootState, rootGetters }, searchValue) {
-    if (!isEqual(searchValue, state.searchValue)) {
-      commit('SET_SEARCH_VALUE', searchValue)
-      updateFilteredShoots({ commit, state, rootState, rootGetters })
-    }
-  },
-  setShootListFilters ({ commit, state, rootState, rootGetters }, value) {
-    commit('SET_SHOOT_LIST_FILTERS', value)
-    updateFilteredShoots({ commit, state, rootState, rootGetters })
-  },
-  setShootListFilter ({ commit, state, rootState, rootGetters }, filterValue) {
-    if (state.shootListFilters) {
-      commit('SET_SHOOT_LIST_FILTER', filterValue)
-      updateFilteredShoots({ commit, state, rootState, rootGetters })
-    }
-  },
-  setNewShootResource ({ commit }, shootResource) {
-    commit('SET_NEW_SHOOT_RESOURCE', shootResource)
-  },
-  resetNewShootResource ({ commit, rootState, rootGetters }) {
-    commit('RESET_NEW_SHOOT_RESOURCE', getInitialShootResource({ rootState, rootGetters }))
-  }
-}
-
-// mutations
-const mutations = {
-  SUBSCRIBE (state, value) {
-    if (value) {
-      state.subscription = value
-    }
-  },
-  UNSUBSCRIBE (state) {
-    state.subscription = undefined
-  },
-  RECEIVE (state, items) {
-    state.shoots = keyBy(items, ({ metadata }) => getKey(metadata))
-  },
-  RECEIVE_INFO (state, [key, info]) {
-    const item = getItemByKey(state, key)
-    if (item !== undefined) {
-      Vue.set(state.infos, key, info)
-    }
-  },
-  RECEIVE_SEED_INFO (state, [key, info]) {
-    const item = getItemByKey(state, key)
-    if (item !== undefined) {
-      Vue.set(state.seedInfos, key, info)
-    }
-  },
-  RECEIVE_ADDON_KYMA (state, [key, info]) {
-    const item = getItemByKey(state, key)
-    if (item !== undefined) {
-      Vue.set(state.addonKyma, key, info)
-    }
-  },
-  PUT_ITEM (state, newItem) {
-    const key = getKey(newItem.metadata)
-    const oldItem = getItemByKey(state, key)
-    if (oldItem) {
-      if (oldItem.metadata.resourceVersion !== newItem.metadata.resourceVersion) {
-        if (isSortRequired(state, newItem, oldItem)) {
-          state.sortRequired = true
-        }
-        Vue.set(state.shoots, key, assign(oldItem, newItem))
-      }
-    } else {
-      state.sortRequired = true
-      Vue.set(state.shoots, key, newItem)
-    }
-  },
-  DELETE_ITEM (state, { metadata } = {}) {
-    const key = getKey(metadata)
-    if (getItemByKey(state, key)) {
-      state.sortRequired = true
-      Vue.delete(state.shoots, key)
-    }
-  },
-  CLEAR_ALL (state) {
-    state.shoots = {}
-    state.sortedShoots = []
-    state.filteredShoots = []
-  },
-  ADD_EVENT (state, event) {
-    state.events.push(event)
-  },
-  CLEAR_EVENTS () {
-    state.events = []
-  },
-  SET_SELECTION (state, metadata) {
-    state.selection = metadata
-  },
-  SET_SORTED_SHOOTS (state, items) {
-    state.sortedShoots = items
-  },
-  SET_FILTERED_SHOOTS (state, items) {
-    state.filteredShoots = items
-  },
-  SET_SORT_PARAMS (state, sortParams) {
-    state.sortParams = sortParams
-  },
-  SET_SEARCH_VALUE (state, searchValue) {
-    if (searchValue && searchValue.length > 0) {
-      state.searchValue = split(searchValue, ' ')
-    } else {
-      state.searchValue = undefined
-    }
-  },
-  SET_SHOOT_LIST_FILTERS (state, value) {
-    state.shootListFilters = value
-  },
-  SET_SHOOT_LIST_FILTER (state, { filter, value }) {
-    Vue.set(state.shootListFilters, filter, value)
-  },
-  SET_NEW_SHOOT_RESOURCE (state, value) {
-    state.newShootResource = value
-  },
-  RESET_NEW_SHOOT_RESOURCE (state, value) {
-    state.newShootResource = value
-    state.initialNewShootResource = cloneDeep(value)
-  }
-}
-
-const throttledProcessEvents = throttle(processEvents, 3000, { trailing: true })
-
-function processEvents ({ commit, state, rootState, rootGetters }) {
+export function processEvents ({ commit, state, rootState, rootGetters }) {
   const onlyShootsWithIssues = rootState.namespace === '_all' && rootState.onlyShootsWithIssues
-  const events = state.events
+  const events = [...state.events]
   commit('CLEAR_EVENTS')
   for (const { type, object } of events) {
     switch (type) {
@@ -404,16 +85,16 @@ function processEvents ({ commit, state, rootState, rootGetters }) {
   }
 }
 
-function getKey ({ namespace, name }) {
+export function getKey ({ namespace, name }) {
   return namespace + '/' + name
 }
 
-function getItemByKey (state, key) {
+export function getItemByKey (state, key) {
   return state.shoots[key]
 }
 
 // Deep diff between two object, using lodash
-function difference (object, baseObject) {
+export function difference (object, baseObject) {
   const iteratee = (accumulator, value, key) => {
     const baseValue = baseObject[key]
     if (!isEqual(value, baseValue)) {
@@ -423,7 +104,7 @@ function difference (object, baseObject) {
   return transform(object, iteratee)
 }
 
-function isSortRequired (state, newItem, oldItem) {
+export function isSortRequired (state, newItem, oldItem) {
   const sortBy = head(get(state, 'sortParams.sortBy'))
   if (includes(['name', 'infrastructure', 'project', 'createdAt', 'createdBy', 'ticketLabels'], sortBy)) {
     return false // these values cannot change
@@ -438,9 +119,8 @@ function isSortRequired (state, newItem, oldItem) {
   return !!getRawVal({ rootGetters }, changes, sortBy)
 }
 
-function getRawVal ({ rootGetters }, item, column) {
-  const metadata = item.metadata
-  const spec = item.spec
+export function getRawVal ({ rootGetters }, item, column) {
+  const { metadata, spec } = item
   switch (column) {
     case 'purpose':
       return get(spec, 'purpose')
@@ -451,7 +131,7 @@ function getRawVal ({ rootGetters }, item, column) {
     case 'createdBy':
       return getCreatedBy(metadata)
     case 'project':
-      return getProjectName(metadata)
+      return rootGetters.projectNameByNamespace(metadata.namespace)
     case 'k8sVersion':
       return get(spec, 'kubernetes.version')
     case 'infrastructure':
@@ -467,7 +147,7 @@ function getRawVal ({ rootGetters }, item, column) {
   }
 }
 
-function getSortVal ({ rootGetters }, item, sortBy) {
+export function getSortVal ({ rootGetters }, item, sortBy) {
   const value = getRawVal({ rootGetters }, item, sortBy)
   const status = item.status
   switch (sortBy) {
@@ -531,7 +211,7 @@ function getSortVal ({ rootGetters }, item, sortBy) {
   }
 }
 
-function getSortedKeys ({ state, rootGetters }) {
+export function getSortedKeys ({ state, rootGetters }) {
   const sortBy = head(get(state, 'sortParams.sortBy'))
   const sortDesc = get(state, 'sortParams.sortDesc', [false])
   const sortOrder = head(sortDesc) ? 'desc' : 'asc'
@@ -599,7 +279,7 @@ function getSortedKeys ({ state, rootGetters }) {
   return map(items, item => getKey(item.metadata))
 }
 
-function getFilteredKeys ({ state, rootState, rootGetters }) {
+export function getFilteredKeys ({ state, rootState, rootGetters }) {
   let keys = state.sortedShoots
   if (state.searchValue) {
     const predicate = key => {
@@ -686,16 +366,51 @@ function getFilteredKeys ({ state, rootState, rootGetters }) {
   return keys
 }
 
-function updateSortedShoots ({ commit, state, rootState, rootGetters }) {
+export function updateSortedShoots ({ commit, state, rootState, rootGetters }) {
   commit('SET_SORTED_SHOOTS', getSortedKeys({ state, rootState, rootGetters }))
   commit('SET_FILTERED_SHOOTS', getFilteredKeys({ state, rootState, rootGetters }))
 }
 
-function updateFilteredShoots ({ commit, state, rootState, rootGetters }) {
+export function updateFilteredShoots ({ commit, state, rootState, rootGetters }) {
   commit('SET_FILTERED_SHOOTS', getFilteredKeys({ state, rootState, rootGetters }))
 }
 
-function getInitialShootResource ({ rootState, rootGetters }) {
+export function getInitialWorker ({ rootGetters }, { cloudProfileName, region, zones }) {
+  const id = uuidv4()
+  const name = `worker-${shortRandomString(5)}`
+  if (zones && zones.length) {
+    zones = [sample(zones)]
+  }
+  const machineTypesForZone = rootGetters.machineTypesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones })
+  const machineType = get(head(machineTypesForZone), 'name')
+  const volumeTypesForZone = rootGetters.volumeTypesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones })
+  const volumeType = get(head(volumeTypesForZone), 'name')
+  const machineImage = rootGetters.defaultMachineImageForCloudProfileName(cloudProfileName)
+  const minVolumeSize = rootGetters.minimumVolumeSizeByCloudProfileNameAndRegion({ cloudProfileName, region })
+  const defaultVolumeSize = parseSize(minVolumeSize) <= parseSize('50Gi') ? '50Gi' : minVolumeSize
+  const worker = {
+    id,
+    name,
+    minimum: 1,
+    maximum: 2,
+    maxSurge: 1,
+    machine: {
+      type: machineType,
+      image: machineImage
+    },
+    zones
+  }
+  if (volumeType) {
+    worker.volume = {
+      type: volumeType,
+      size: defaultVolumeSize
+    }
+  }
+
+  return worker
+}
+
+export function getInitialShootResource ({ rootState, rootGetters }) {
   const shootResource = {
     apiVersion: 'core.gardener.cloud/v1beta1',
     kind: 'Shoot',
@@ -773,7 +488,7 @@ function getInitialShootResource ({ rootState, rootGetters }) {
     set(shootResource, 'spec.provider.infrastructureConfig.networks.zones', zonesNetworkConfiguration)
   }
 
-  const worker = omit(generateWorker(zones, cloudProfileName, region), ['id'])
+  const worker = omit(getInitialWorker({ rootGetters }, { cloudProfileName, region, zones }), ['id'])
   const workers = [worker]
   set(shootResource, 'spec.provider.workers', workers)
 
@@ -793,7 +508,9 @@ function getInitialShootResource ({ rootState, rootGetters }) {
     set(shootResource, 'metadata.annotations["experimental.addons.shoot.gardener.cloud/kyma"]', 'enabled')
   }
 
-  const { utcBegin, utcEnd } = utcMaintenanceWindowFromLocalBegin({ localBegin: randomLocalMaintenanceBegin(), timezone: rootState.localTimezone })
+  const localBegin = randomLocalMaintenanceBegin()
+  const timezone = rootState.localTimezone
+  const { utcBegin, utcEnd } = utcMaintenanceWindowFromLocalBegin({ localBegin, timezone })
   const maintenance = {
     timeWindow: {
       begin: utcBegin,
@@ -816,12 +533,4 @@ function getInitialShootResource ({ rootState, rootGetters }) {
   set(shootResource, 'spec.hibernation.schedules', hibernationSchedule)
 
   return shootResource
-}
-
-export default {
-  namespaced: true,
-  state,
-  getters,
-  actions,
-  mutations
 }

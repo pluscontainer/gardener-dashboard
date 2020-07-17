@@ -81,7 +81,9 @@ export default {
   },
   methods: {
     getUTCMaintenanceWindow () {
-      return utcMaintenanceWindowFromLocalBegin({ localBegin: this.localizedMaintenanceBegin, timezone: this.selectedTimezone })
+      const localBegin = this.localizedMaintenanceBegin
+      const timezone = this.selectedTimezone || this.localTimezone
+      return utcMaintenanceWindowFromLocalBegin({ localBegin, timezone })
     },
     reset () {
       this.selectedTimezone = this.localTimezone

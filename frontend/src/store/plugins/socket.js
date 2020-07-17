@@ -122,9 +122,12 @@ function disconnect ({ socket }) {
 
 async function subscribeTopic ({ socket, store }, topic) {
   try {
-    const filter = new URLSearchParams(store.state[topic].subscription).toString()
-    await subscribe(socket, { topic, filter })
-    await store.dispatch(topic + '/subscribed')
+    const subscription = store.state[topic].subscription
+    if (subscription) {
+      const filter = new URLSearchParams(store.state[topic].subscription).toString()
+      await subscribe(socket, { topic, filter })
+      await store.dispatch(topic + '/subscribed')
+    }
   } catch (err) {
     handleError(store, err)
   }

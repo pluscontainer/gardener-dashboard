@@ -22,7 +22,7 @@ import keys from 'lodash/keys'
 import compact from 'lodash/compact'
 import values from 'lodash/values'
 import SymbolTree from 'symbol-tree'
-const uuidv4 = require('uuid/v4')
+import { v4 as uuidv4 } from 'uuid'
 
 export const PositionEnum = {
   TOP: 'top',

@@ -265,15 +265,12 @@ export default {
     ]),
     ...mapGetters([
       'memberList',
-      'projectFromProjectList',
+      'project',
       'canPatchProject',
       'username',
       'isAdmin',
       'projectList'
     ]),
-    project () {
-      return this.projectFromProjectList
-    },
     projectDetails () {
       return getProjectDetails(this.project)
     },
