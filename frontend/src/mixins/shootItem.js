@@ -19,7 +19,8 @@ import uniq from 'lodash/uniq'
 import flatMap from 'lodash/flatMap'
 import cloneDeep from 'lodash/cloneDeep'
 import find from 'lodash/find'
-import { mapGetters } from 'vuex'
+import isEmpty from 'lodash/isEmpty'
+import { mapGetters, mapState } from 'vuex'
 
 import {
   getDateFormatted,
@@ -29,8 +30,15 @@ import {
   isTypeDelete
 } from '@/utils'
 
+import {
+  purposeRequiresHibernationSchedule
+} from '@/utils/hibernationSchedule'
+
 export const shootItem = {
   computed: {
+    ...mapState([
+      'cfg'
+    ]),
     ...mapGetters([
       'projectNameByNamespace',
       'selectedAccessRestrictionsForShootByCloudProfileNameAndRegion'
@@ -101,6 +109,14 @@ export const shootItem = {
     },
     isShootStatusHibernationProgressing () {
       return this.isShootSettingHibernated !== this.isShootStatusHibernated
+    },
+    isShootHasNoHibernationScheduleWarning () {
+      if (purposeRequiresHibernationSchedule(this.cfg, this.shootPurpose)) {
+        const hasNoScheduleFlag = !!this.shootAnnotations['dashboard.garden.sapcloud.io/no-hibernation-schedule']
+        const hibernationSchedules = get(this.shootSpec, 'hibernation.schedules')
+        return !hasNoScheduleFlag && isEmpty(hibernationSchedules)
+      }
+      return false
     },
     shootSecretBindingName () {
       return this.shootSpec.secretBindingName

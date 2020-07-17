@@ -88,8 +88,11 @@ import find from 'lodash/find'
 import isEmpty from 'lodash/isEmpty'
 import { v4 as uuidv4 } from 'uuid'
 import { mapState } from 'vuex'
-import { purposeRequiresHibernationSchedule } from '@/utils'
-import { parsedScheduleEventsFromCrontabBlock, crontabFromParsedScheduleEvents } from '@/utils/hibernationSchedule'
+import {
+  ,
+  parsedScheduleEventsFromCrontabBlock,
+  crontabFromParsedScheduleEvents
+} from '@/utils/hibernationSchedule'
 
 export default {
   name: 'hibernation-schedule',
@@ -125,7 +128,7 @@ export default {
       'localTimezone'
     ]),
     showNoScheduleCheckbox () {
-      return purposeRequiresHibernationSchedule(this.purpose) &&
+      return purposeRequiresHibernationSchedule(this.cfg, this.purpose) &&
       isEmpty(this.parsedScheduleEvents) &&
       !this.parseError
     },

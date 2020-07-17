@@ -154,3 +154,14 @@ export function crontabFromParsedScheduleEvents (parsedScheduleEvents) {
   })
   return { scheduleCrontab, valid }
 }
+
+export function purposeRequiresHibernationSchedule (config, purpose) {
+  const defaultHibernationSchedules = get(config, 'defaultHibernationSchedule')
+  if (defaultHibernationSchedules) {
+    if (isEmpty(purpose)) {
+      return true
+    }
+    return !isEmpty(get(defaultHibernationSchedules, purpose))
+  }
+  return false
+}

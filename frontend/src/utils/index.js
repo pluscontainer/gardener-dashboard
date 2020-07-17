@@ -42,7 +42,6 @@ import join from 'lodash/join'
 import last from 'lodash/last'
 import sample from 'lodash/sample'
 import compact from 'lodash/compact'
-import store from '../store'
 
 export function emailToDisplayName (value) {
   if (value) {
@@ -410,29 +409,6 @@ export function encodeBase64Url (input) {
   output = output.replace(/\+/g, '-')
   output = output.replace(/\//g, '_')
   return output
-}
-
-export function purposeRequiresHibernationSchedule (purpose) {
-  const defaultHibernationSchedules = get(store, 'state.cfg.defaultHibernationSchedule')
-  if (defaultHibernationSchedules) {
-    if (isEmpty(purpose)) {
-      return true
-    }
-    return !isEmpty(get(defaultHibernationSchedules, purpose))
-  }
-  return false
-}
-
-export function isShootHasNoHibernationScheduleWarning (shoot) {
-  const purpose = get(shoot, 'spec.purpose')
-  const annotations = get(shoot, 'metadata.annotations', {})
-  if (purposeRequiresHibernationSchedule(purpose)) {
-    const hasNoScheduleFlag = !!annotations['dashboard.garden.sapcloud.io/no-hibernation-schedule']
-    if (!hasNoScheduleFlag && isEmpty(get(shoot, 'spec.hibernation.schedules'))) {
-      return true
-    }
-  }
-  return false
 }
 
 export function shortRandomString (length) {

@@ -21,6 +21,7 @@ import getters from '@/store/getters'
 import actions from '@/store/actions'
 import mutations from '@/store/mutations'
 import modules from '@/store/modules'
+import shootState from '@/store/modules/shoots/state'
 import { mapAccessRestrictionForInput } from '@/store/helpers'
 
 let store
@@ -124,9 +125,10 @@ describe('Store.Shoots', function () {
 
     // Modifies state of module even if we do not include state in the root store
     // TODO: This is all a bit hacky, think of a cleaner solution on how to create the store
-    state.shoots.shoots = shootItems
+    shootState.shoots = shootItems
 
     store = new Vuex.Store({
+      state,
       actions,
       getters,
       mutations,

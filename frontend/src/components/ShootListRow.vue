@@ -126,7 +126,7 @@ limitations under the License.
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
+import { mapGetters, mapState } from 'vuex'
 import AccessRestrictionChips from '@/components/ShootAccessRestrictions/AccessRestrictionChips'
 import AccountAvatar from '@/components/AccountAvatar'
 import Vendor from '@/components/Vendor'
@@ -146,7 +146,6 @@ import forEach from 'lodash/forEach'
 import includes from 'lodash/includes'
 import {
   isTypeDelete,
-  isShootHasNoHibernationScheduleWarning,
   getTimestampFormatted
 } from '@/utils'
 import { shootItem } from '@/mixins/shootItem'
@@ -226,9 +225,6 @@ export default {
       return this.isClusterAccessDialogDisabled
         ? 'Cluster Access'
         : 'Show Cluster Access'
-    },
-    isShootHasNoHibernationScheduleWarning () {
-      return isShootHasNoHibernationScheduleWarning(this.shootItem)
     },
     shootLastUpdatedTicketTimestamp () {
       return this.latestUpdatedTicketByNameAndNamespace(this.shootMetadata)

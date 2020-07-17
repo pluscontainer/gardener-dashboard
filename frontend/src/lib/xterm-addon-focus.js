@@ -14,22 +14,21 @@
 // limitations under the License.
 //
 
-const { default: store } = require('../store')
-
-class FocusAddon {
-  constructor (uuid) {
+export class FocusAddon {
+  constructor (vm, uuid) {
+    this.vm = vm
     this.uuid = uuid
   }
 
   activate (terminal) {
     terminal.textarea.onfocus = () => {
-      store.commit('SET_FOCUSED_ELEMENT_ID', this.uuid)
+      this.vm.setFocusedElementId(this.uuid)
       if (typeof this.onFocus === 'function') {
         this.onFocus()
       }
     }
     terminal.textarea.onblur = () => {
-      store.commit('UNSET_FOCUSED_ELEMENT_ID', this.uuid)
+      this.vm.unsetFocusedElementId(this.uuid)
       if (typeof this.onBlur === 'function') {
         this.onBlur()
       }
@@ -38,5 +37,3 @@ class FocusAddon {
 
   dispose () {}
 }
-
-module.exports = { FocusAddon }

@@ -125,7 +125,6 @@ limitations under the License.
 import { mapState, mapGetters } from 'vuex'
 import get from 'lodash/get'
 import moment from 'moment-timezone'
-import { isShootHasNoHibernationScheduleWarning } from '@/utils'
 import ChangeHibernation from '@/components/ShootHibernation/ChangeHibernation'
 import MaintenanceStart from '@/components/ShootMaintenance/MaintenanceStart'
 import MaintenanceConfiguration from '@/components/ShootMaintenance/MaintenanceConfiguration'
@@ -183,9 +182,6 @@ export default {
         return `Start time: ${maintenanceStr} ${timezone}`
       }
       return ''
-    },
-    isShootHasNoHibernationScheduleWarning () {
-      return isShootHasNoHibernationScheduleWarning(this.shootItem)
     },
     reconcileDescription () {
       if (this.isShootReconciliationDeactivated) {

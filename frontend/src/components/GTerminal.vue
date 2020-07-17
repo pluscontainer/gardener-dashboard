@@ -210,7 +210,7 @@ limitations under the License.
 </template>
 
 <script>
-import { mapState, mapGetters } from 'vuex'
+import { mapState, mapGetters, mapMutations } from 'vuex'
 import ora from 'ora'
 import get from 'lodash/get'
 import assign from 'lodash/assign'
@@ -724,6 +724,10 @@ export default {
     }
   },
   methods: {
+    ...mapMutations({
+      setFocusedElementId: 'SET_FOCUSED_ELEMENT_ID',
+      unsetFocusedElementId: 'UNSET_FOCUSED_ELEMENT_ID'
+    }),
     focus () {
       this.term.focus()
     },
@@ -834,7 +838,7 @@ export default {
   mounted () {
     const term = this.term = new Terminal()
     const fitAddon = this.fitAddon = new FitAddon()
-    const focusAddon = new FocusAddon(this.uuid)
+    const focusAddon = new FocusAddon(this, this.uuid)
     focusAddon.onFocus = () => {
       term.setOption('theme', { background: '#000' })
       this.hasFocus = true
