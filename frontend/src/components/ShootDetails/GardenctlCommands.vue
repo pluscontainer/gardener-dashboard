@@ -58,7 +58,6 @@ import CopyBtn from '@/components/CopyBtn'
 import CodeBlock from '@/components/CodeBlock'
 import { shootItem } from '@/mixins/shootItem'
 import { mapState, mapGetters } from 'vuex'
-import get from 'lodash/get'
 import Vue from 'vue'
 
 export default {

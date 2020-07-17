@@ -137,7 +137,7 @@ export default {
       this.validateInput()
     },
     addWorker () {
-      const worker = generateWorker({
+      const worker = this.generateWorker({
         cloudProfileName: this.cloudProfileName,
         region: this.region,
         zones: this.availableZones
