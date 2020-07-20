@@ -16,7 +16,6 @@
 
 import get from 'lodash/get'
 import map from 'lodash/map'
-import forEach from 'lodash/forEach'
 import some from 'lodash/some'
 
 import {
@@ -30,7 +29,7 @@ import {
 
 // actions
 const actions = {
-  fetchAll ({ dispatch, commit }, resources) {
+  fetchAll ({ dispatch }, resources) {
     const iteratee = (value, key) => dispatch(key, value)
     return Promise
       .all(map(resources, iteratee))
@@ -240,13 +239,15 @@ const actions = {
       addKymaAddon(value.kyma)
     }
 
-    if (get(value, 'alert')) {
-      commit('SET_ALERT_BANNER', get(value, 'alert'))
+    const alertBanner = value.alert
+    if (alertBanner) {
+      commit('SET_ALERT_BANNER', alertBanner)
     }
 
-    forEach(value.knownConditions, (conditionValue, conditionKey) => {
-      commit('SET_CONDITION', { conditionKey, conditionValue })
-    })
+    const conditions = value.knownConditions
+    if (conditions) {
+      commit('SET_CONDITIONS', conditions)
+    }
 
     return state.cfg
   },

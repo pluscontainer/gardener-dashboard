@@ -16,6 +16,8 @@
 
 import io from 'socket.io-client'
 
+import throttle from 'lodash/throttle'
+
 function addEventListeners ({ socket, store }) {
   socket.on('connect', async () => {
     console.log(`socket ${socket.id} connection established`)
@@ -50,14 +52,32 @@ function addEventListeners ({ socket, store }) {
   socket.on('error', err => {
     console.error(`socket ${socket.id} error ${err}`)
   })
-  socket.on('shoot', event => {
-    store.dispatch('shoots/handleEvent', event)
-  })
-  socket.on('ticket', event => {
-    store.dispatch('tickets/handleEvent', event)
-  })
-  socket.on('comment', event => {
-    store.dispatch('comments/handleEvent', event)
+  const topics = {
+    shoots: 1000,
+    tickets: 0,
+    comments: 0
+  }
+  for (const [topic, wait] of Object.entries(topics)) {
+    addTopicEventListener({ socket, store }, topic, wait)
+  }
+}
+
+function addTopicEventListener ({ socket, store }, topic, wait) {
+  const state = {
+    events: []
+  }
+  const dispatchHandleEvents = throttle(async () => {
+    try {
+      const events = state.events
+      state.events = []
+      await store.dispatch(topic + '/handleEvents', events)
+    } catch (err) {
+      console.error(`dispatch "${topic}/handleEvents" failed:`, err)
+    }
+  }, wait)
+  socket.on(topic, event => {
+    state.events.push(event)
+    dispatchHandleEvents()
   })
 }
 

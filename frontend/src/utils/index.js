@@ -640,8 +640,8 @@ export function isVersionUpdatePathAvailable (allVersions, kubernetesVersion) {
 }
 
 export function isSelectedImageNotLatest (machineImages, machineImage) {
-  return some(machineImages, ({ version, vendorName, isPreview }) => {
-    return machineImage.vendorName === vendorName && semver.gt(version, machineImage.version) && !isPreview
+  return some(machineImages, ({ version, vendorName, isPreview } = {}) => {
+    return machineImage && machineImage.vendorName === vendorName && semver.gt(version, machineImage.version) && !isPreview
   })
 }
 

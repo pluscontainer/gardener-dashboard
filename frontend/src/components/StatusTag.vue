@@ -222,7 +222,7 @@ export default {
   },
   methods: {
     ...mapMutations({
-      setCondition: 'SET_CONDITION'
+      setConditions: 'SET_CONDITIONS'
     }),
     conditionMetadataFromType (type) {
       const condition = this.conditionCache[type]
@@ -246,7 +246,9 @@ export default {
       const displayName = join(conditionComponents, ' ')
       const shortName = join(map(conditionComponents, first), '')
       const conditionMetaData = { displayName, shortName }
-      this.setCondition({ conditionKey: type, conditionValue: conditionMetaData })
+      this.setConditions({
+        [type]: conditionMetaData
+      })
 
       return conditionMetaData
     },

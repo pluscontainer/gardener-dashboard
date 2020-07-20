@@ -138,7 +138,7 @@ const getters = {
       const mapMachineImages = (machineImage) => {
         const versions = filter(machineImage.versions, ({ version, expirationDate }) => {
           if (!semver.valid(version)) {
-            console.error(`Skipped machine image ${machineImage.name} as version ${version} is not a valid semver version`)
+            console.warn(`Skipped machine image ${machineImage.name} as version ${version} is not a valid semver version`)
             return false
           }
           return true

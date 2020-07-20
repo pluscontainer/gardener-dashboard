@@ -21,7 +21,7 @@ const state = {
   addonKyma: {},
   sortedShoots: [],
   filteredShoots: [],
-  events: [],
+  loading: false,
   sortRequired: false,
   sortParams: undefined,
   searchValue: undefined,

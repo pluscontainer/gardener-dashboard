@@ -113,9 +113,12 @@ function onConnection (socket) {
       case 'shoots': {
         await unsubscribeShoots(socket)
         const namespace = searchParams.get('namespace')
+        if (!namespace) {
+          const unhealthy = searchParams.get('unhealthy') === 'true'
+          return subscribeShootsAllNamespaces(socket, { unhealthy })
+        }
         const name = searchParams.get('name')
-        const unhealthy = searchParams.get('unhealthy') === 'true'
-        return subscribeShoots(socket, { namespace, name, unhealthy })
+        return subscribeShoots(socket, { namespace, name })
       }
       case 'tickets': {
         await unsubscribeTickets(socket)
@@ -130,29 +133,32 @@ function onConnection (socket) {
     }
   }
 
-  async function subscribeShoots (socket, { namespace, name, unhealthy }) {
+  function subscribeShoots (socket, { namespace, name }) {
     const user = getUserFromSocket(socket)
-    const origin = unhealthy ? 'subs://unhealthy.shoots' : 'subs://shoots'
-    if (!namespace) {
-      if (!user.isAdmin) {
-        throw new Forbidden(`User ${user.id} has no authorization for all namespaces`)
-      }
-      const joinRoomPromises = cache
-        .getProjects()
-        .map(project => {
-          const pathname = '/' + encodeURIComponent(project.spec.namespace)
-          return joinRoom(socket, origin + pathname)
-        })
-      await Promise.all(joinRoomPromises)
-    }
     if (!isMemberOfNamespace(user, namespace)) {
       throw new Forbidden(`User ${user.id} has no authorization for namespace ${namespace}`)
     }
-    let pathname = '/' + encodeURIComponent(namespace)
+    let pathname = '/namespace/' + encodeURIComponent(namespace)
     if (name) {
-      pathname += '/' + encodeURIComponent(name)
+      pathname += '/cluster/' + encodeURIComponent(name)
+    } else {
+      pathname += '/all-clusters'
     }
-    await joinRoom(socket, origin + pathname)
+    return joinRoom(socket, 'subs://shoots' + pathname)
+  }
+
+  function subscribeShootsAllNamespaces (socket, { unhealthy }) {
+    const user = getUserFromSocket(socket)
+    if (!user.isAdmin) {
+      throw new Forbidden(`User ${user.id} has no authorization for all namespaces`)
+    }
+    let pathname = '/all-namespaces'
+    if (unhealthy) {
+      pathname += '/unhealthy-clusters'
+    } else {
+      pathname += '/all-clusters'
+    }
+    return joinRoom(socket, 'subs://shoots' + pathname)
   }
 
   async function subscribeTickets (socket) {
@@ -161,9 +167,7 @@ function onConnection (socket) {
 
   async function subscribeComments (socket, { namespace, name }) {
     const project = cache.findProjectByNamespace(namespace)
-    const projectName = encodeURIComponent(project.metadata.name)
-    name = encodeURIComponent(name)
-    const pathname = '/' + projectName + '/' + name
+    const pathname = '/project/' + encodeURIComponent(project.metadata.name) + '/cluster/' + encodeURIComponent(name)
     await joinRoom(socket, 'subs://comments' + pathname)
   }
 
@@ -183,7 +187,7 @@ function onConnection (socket) {
   }
 
   function unsubscribeShoots (socket) {
-    return leaveRooms(socket, /^subs:\/\/([^/?]*\.)?shoots/)
+    return leaveRooms(socket, /^subs:\/\/shoots/)
   }
 
   function unsubscribeTickets (socket) {

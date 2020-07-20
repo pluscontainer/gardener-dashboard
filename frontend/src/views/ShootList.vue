@@ -347,16 +347,20 @@ export default {
     ...mapGetters({
       mappedItems: 'shootList',
       item: 'shootByNamespaceAndName',
-      selectedItem: 'selectedShoot',
-      isAdmin: 'isAdmin',
-      getShootListFilters: 'getShootListFilters',
-      canPatchShoots: 'canPatchShoots',
-      canDeleteShoots: 'canDeleteShoots',
-      canCreateShoots: 'canCreateShoots',
-      canGetSecrets: 'canGetSecrets'
+      selectedItem: 'selectedShoot'
+    }),
+    ...mapGetters([
+      'isAdmin',
+      'getShootListFilters',
+      'canPatchShoots',
+      'canDeleteShoots',
+      'canCreateShoots',
+      'canGetSecrets'
+    ]),
+    ...mapState({
+      shootsLoading: state => state.shoots.loading
     }),
     ...mapState([
-      'shootsLoading',
       'onlyShootsWithIssues',
       'cfg',
       'namespace'

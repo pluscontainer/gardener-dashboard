@@ -71,8 +71,10 @@ const mutations = {
   SET_ALERT_BANNER (state, value) {
     state.alertBanner = value
   },
-  SET_CONDITION (state, { conditionKey, conditionValue }) {
-    Vue.set(state.conditionCache, conditionKey, conditionValue)
+  SET_CONDITIONS (state, object = {}) {
+    for (const [key, value] of Object.entries(object)) {
+      Vue.set(state.conditionCache, key, value)
+    }
   },
   SET_FOCUSED_ELEMENT_ID (state, value) {
     state.focusedElementId = value

@@ -46,7 +46,6 @@ import {
   isReconciliationDeactivated,
   isStatusProgressing,
   getCreatedBy,
-  shootHasIssue,
   purposesForSecret,
   shortRandomString,
   shootAddonList,
@@ -59,31 +58,6 @@ import {
   isUserError,
   errorCodesFromArray
 } from '@/utils/errorCodes'
-
-export function processEvents ({ commit, state, rootState, rootGetters }) {
-  const onlyShootsWithIssues = rootState.namespace === '_all' && rootState.onlyShootsWithIssues
-  const events = [...state.events]
-  commit('CLEAR_EVENTS')
-  for (const { type, object } of events) {
-    switch (type) {
-      case 'ADDED':
-      case 'MODIFIED': {
-        if (!onlyShootsWithIssues || shootHasIssue(object)) {
-          commit('PUT_ITEM', object)
-        }
-        break
-      }
-      case 'DELETED': {
-        commit('DELETE_ITEM', object)
-        break
-      }
-    }
-  }
-  if (state.sortRequired) {
-    updateSortedShoots({ commit, state, rootState, rootGetters })
-    commit('SET_SORT_REQUIRED', false)
-  }
-}
 
 export function getKey ({ namespace, name }) {
   return namespace + '/' + name
@@ -104,16 +78,13 @@ export function difference (object, baseObject) {
   return transform(object, iteratee)
 }
 
-export function isSortRequired (state, newItem, oldItem) {
+export function isSortRequired ({ state, rootGetters }, newItem, oldItem) {
   const sortBy = head(get(state, 'sortParams.sortBy'))
   if (includes(['name', 'infrastructure', 'project', 'createdAt', 'createdBy', 'ticketLabels'], sortBy)) {
     return false // these values cannot change
   }
   if (sortBy === 'lastOperation') {
     return true // don't check in this case as most put events will be lastOperation anyway
-  }
-  const rootGetters = {
-    ticketLabels () {}
   }
   const changes = difference(oldItem, newItem)
   return !!getRawVal({ rootGetters }, changes, sortBy)

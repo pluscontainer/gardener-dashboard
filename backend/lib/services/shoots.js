@@ -29,22 +29,14 @@ const semver = require('semver')
 
 const { decodeBase64, getSeedNameFromShoot } = utils
 
-exports.listAllNamespaces = async function ({ user, labelSelector }) {
+exports.listAllNamespaces = async function ({ user, searchParams }) {
   const client = user.client
-  const query = {}
-  if (labelSelector) {
-    query.labelSelector = labelSelector
-  }
-  return client['core.gardener.cloud'].shoots.listAllNamespaces(query)
+  return client['core.gardener.cloud'].shoots.listAllNamespaces({ searchParams })
 }
 
-exports.list = async function ({ user, namespace, labelSelector }) {
+exports.list = async function ({ user, namespace, searchParams }) {
   const client = user.client
-  const query = {}
-  if (labelSelector) {
-    query.labelSelector = labelSelector
-  }
-  return client['core.gardener.cloud'].shoots.list(namespace, query)
+  return client['core.gardener.cloud'].shoots.list(namespace, { searchParams })
 }
 
 exports.create = async function ({ user, namespace, body }) {

@@ -41,15 +41,15 @@ module.exports = (io, { shootsWithIssues = new Set() } = {}) => {
     const namespace = encodeURIComponent(object.metadata.namespace)
     const name = encodeURIComponent(object.metadata.name)
 
-    io.to(`subs://shoots/${namespace}/${name}`)
-      .to(`subs://shoots/${namespace}`)
-      .to('subs://shoots')
-      .emit('shoot', event)
+    io.to(`subs://shoots/namespace/${namespace}/cluster/${name}`)
+      .to(`subs://shoots/namespace/${namespace}/all-clusters`)
+      .to('subs://shoots/all-namespaces/all-clusters')
+      .emit('shoots', event)
 
     if (shootHasIssue(object)) {
-      io.to(`subs://unhealthy.shoot/${namespace}`)
-        .to('subs://unhealthy.shoot')
-        .emit('shoot', event)
+      io.to(`subs://shoot/namespace/${namespace}/unhealthy-clusters`)
+        .to('subs://shoot/all-namespaces/unhealthy-clusters')
+        .emit('shoots', event)
       if (!shootsWithIssues.has(uid)) {
         shootsWithIssues.add(uid)
       } else if (type === 'DELETED') {
@@ -60,9 +60,9 @@ module.exports = (io, { shootsWithIssues = new Set() } = {}) => {
         type: 'DELETED',
         object
       }
-      io.to(`subs://unhealthy.shoots/${namespace}`)
-        .to('subs://unhealthy.shoots')
-        .emit('shoot', deletedEvent)
+      io.to(`subs://shoot/namespace/${namespace}/unhealthy`)
+        .to('subs://shoot/all-namespaces/unhealthy')
+        .emit('shoots', deletedEvent)
       shootsWithIssues.delete(uid)
     }
 

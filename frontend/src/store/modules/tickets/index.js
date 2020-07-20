@@ -82,18 +82,8 @@ const actions = {
   clearAll ({ commit }) {
     commit('CLEAR_ALL')
   },
-  handleEvent ({ commit }, { type, object }) {
-    switch (type) {
-      case 'ADDED':
-      case 'MODIFIED':
-        commit('PUT_ITEM', object)
-        break
-      case 'DELETED':
-        commit('DELETE_ITEM', object)
-        break
-      default:
-        console.error('Undhandled event type', type)
-    }
+  handleEvents ({ commit }, events) {
+
   }
 }
 
@@ -110,25 +100,33 @@ const mutations = {
   RECEIVE (state, items) {
     state.all = orderByUpdatedAt(items)
   },
-  PUT_ITEM (state, item) {
-    const items = state.all
-    const key = get(item, 'metadata.number')
-    const index = findIndex(items, ['metadata.number', key])
-    if (index !== -1) {
-      const oldItem = items[index]
-      if (get(oldItem, 'metadata.updated_at') <= get(item, 'metadata.updated_at')) {
-        items.splice(index, 1, item)
+  HANDLE_EVENTS (state, events) {
+    for (const { type, object } of events) {
+      const key = get(object, 'metadata.number')
+      const items = state.all
+      const index = findIndex(items, ['metadata.number', key])
+      switch (type) {
+        case 'ADDED':
+        case 'MODIFIED': {
+          if (index !== -1) {
+            const item = items[index]
+            if (get(item, 'metadata.updated_at') <= get(object, 'metadata.updated_at')) {
+              items.splice(index, 1, object)
+            }
+          } else {
+            state.all = orderByUpdatedAt(concat(items, object))
+          }
+          break
+        }
+        case 'DELETED': {
+          if (index !== -1) {
+            items.splice(index, 1)
+          }
+          break
+        }
+        default:
+          console.error('Undhandled event type', type)
       }
-    } else {
-      state.all = orderByUpdatedAt(concat(items, item))
-    }
-  },
-  DELETE_ITEM (state, item) {
-    const items = state.all
-    const key = get(item, 'metadata.number')
-    const index = findIndex(items, ['metadata.number', key])
-    if (index !== -1) {
-      items.splice(index, 1)
     }
   },
   CLEAR_ALL (state) {

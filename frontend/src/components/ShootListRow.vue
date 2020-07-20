@@ -126,7 +126,7 @@ limitations under the License.
 </template>
 
 <script>
-import { mapGetters, mapState } from 'vuex'
+import { mapGetters } from 'vuex'
 import AccessRestrictionChips from '@/components/ShootAccessRestrictions/AccessRestrictionChips'
 import AccountAvatar from '@/components/AccountAvatar'
 import Vendor from '@/components/Vendor'

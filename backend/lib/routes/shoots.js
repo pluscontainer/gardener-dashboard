@@ -36,8 +36,8 @@ clusterScoped.route('/')
   .get(async (req, res, next) => {
     try {
       const user = req.user
-      const labelSelector = req.query.labelSelector
-      res.send(await shoots.listAllNamespaces({ user, labelSelector }))
+      const searchParams = new URLSearchParams(req.query)
+      res.send(await shoots.listAllNamespaces({ user, searchParams }))
     } catch (err) {
       next(err)
     }
@@ -48,8 +48,8 @@ namespaceScoped.route('/')
     try {
       const user = req.user
       const namespace = req.params.namespace
-      const labelSelector = req.query.labelSelector
-      res.send(await shoots.list({ user, namespace, labelSelector }))
+      const searchParams = new URLSearchParams(req.query)
+      res.send(await shoots.list({ user, namespace, searchParams }))
     } catch (err) {
       next(err)
     }

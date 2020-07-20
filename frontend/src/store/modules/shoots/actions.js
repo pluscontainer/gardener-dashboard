@@ -16,16 +16,16 @@
 
 import get from 'lodash/get'
 import replace from 'lodash/replace'
+import filter from 'lodash/filter'
+import concat from 'lodash/concat'
 import pick from 'lodash/pick'
 import isEqual from 'lodash/isEqual'
-import throttle from 'lodash/throttle'
 
 import { isNotFound } from '@/utils/error'
 
 import {
   getShoot,
   getShoots,
-  getUnhealthyShoots,
   getShootInfo,
   getShootSeedInfo,
   createShoot,
@@ -34,17 +34,61 @@ import {
 } from '@/utils/api'
 
 import {
+  shootHasIssue
+} from '@/utils'
+
+import {
   getKey,
+  isSortRequired,
   updateSortedShoots,
   updateFilteredShoots,
-  processEvents,
   getInitialShootResource,
   getItemByKey
 } from './helpers'
 
-const throttledProcessEvents = throttle(processEvents, 3000, { trailing: true })
-
 const uriPattern = /^([^:/?#]+:)?(\/\/[^/?#]*)?([^?#]*)(\?[^#]*)?(#.*)?/
+
+async function * fetchShootsIterator (params) {
+  do {
+    const { metadata, items } = get(await getShoots({}, { params }), 'data')
+    if (metadata.continue) {
+      params.continue = metadata.continue
+    } else if (params.continue) {
+      delete params.continue
+    }
+    yield items
+  } while (params.continue)
+}
+
+async function fetchShoots (context, subscription) {
+  const { commit } = context
+  commit('SET_LOADING', true)
+  try {
+    const { namespace, name, unhealthy } = subscription
+    if (namespace && name) {
+      const item = get(await getShoot({ namespace, name }), 'data')
+      commit('RECEIVE', [item])
+    } else if (namespace) {
+      const items = get(await getShoots({ namespace }), 'data.items')
+      commit('RECEIVE', items)
+      updateSortedShoots(context)
+    } else {
+      const params = { limit: 100 }
+      if (unhealthy) {
+        params.labelSelector = 'shoot.gardener.cloud/status!=healthy'
+      }
+      let items = []
+      for await (const chunk of fetchShootsIterator(params)) {
+        items = concat(items, chunk)
+        commit('RECEIVE', items)
+        updateSortedShoots(context)
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch shoots', err)
+  }
+  commit('SET_LOADING', false)
+}
 
 const actions = {
   setSubscription ({ commit, rootState }, subscription) {
@@ -63,27 +107,12 @@ const actions = {
       commit('UNSUBSCRIBE')
     }
   },
-  async subscribed ({ commit, state, rootState, rootGetters }) {
+  subscribed (context) {
+    const { commit, state } = context
     const subscription = state.subscription
     if (subscription) {
       commit('CLEAR_ALL')
-      commit('CLEAR_EVENTS')
-      commit('SET_SHOOTS_LOADING', true, { root: true })
-      const { namespace, name, unhealthy } = subscription
-      let items
-      if (namespace && name) {
-        const item = get(await getShoot({ namespace, name }), 'data')
-        items = [item]
-      } else if (namespace) {
-        items = get(await getShoots({ namespace }), 'data.items')
-      } else if (unhealthy) {
-        items = get(await getUnhealthyShoots(), 'data.items')
-      } else {
-        items = get(await getShoots(), 'data.items')
-      }
-      commit('RECEIVE', items)
-      updateSortedShoots({ commit, state, rootState, rootGetters })
-      commit('SET_SHOOTS_LOADING', false, { root: true })
+      fetchShoots(context, subscription)
     }
   },
   unsubscribed ({ commit }) {
@@ -92,10 +121,52 @@ const actions = {
   clearAll ({ commit }) {
     commit('CLEAR_ALL')
   },
-  handleEvent (context, event) {
-    const { commit } = context
-    commit('ADD_EVENT', event)
-    throttledProcessEvents(context)
+  handleEvents ({ commit, state, rootState, rootGetters }, events) {
+    const onlyShootsWithIssues = rootState.namespace === '_all' && rootState.onlyShootsWithIssues
+    let sortRequired
+    const modifications = []
+    const predicate = ({ type, object }) => {
+      const key = getKey(object.metadata)
+      const item = getItemByKey(state, key)
+      switch (type) {
+        case 'ADDED':
+        case 'MODIFIED': {
+          if (!onlyShootsWithIssues || shootHasIssue(object)) {
+            if (item) {
+              if (object.metadata.resourceVersion !== item.metadata.resourceVersion) {
+                modifications.push([object, item])
+                return true
+              }
+            } else {
+              sortRequired = true
+              return true
+            }
+          }
+          break
+        }
+        case 'DELETED': {
+          if (item) {
+            sortRequired = true
+            return true
+          }
+          break
+        }
+      }
+      return false
+    }
+    events = filter(events, predicate)
+    commit('HANDLE_EVENTS', events)
+    if (!sortRequired) {
+      for (const [object, item] of modifications) {
+        if (isSortRequired({ state, rootGetters }, object, item)) {
+          sortRequired = true
+          break
+        }
+      }
+    }
+    if (sortRequired) {
+      updateSortedShoots({ commit, state, rootState, rootGetters })
+    }
   },
   create ({ rootState }, data) {
     const namespace = data.metadata.namespace || rootState.namespace

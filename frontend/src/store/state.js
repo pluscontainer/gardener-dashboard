@@ -35,7 +35,6 @@ const state = {
   loading: false,
   alert: null,
   alertBanner: null,
-  shootsLoading: false,
   websocketConnectionError: null,
   localTimezone: moment.tz.guess(),
   focusedElementId: null,

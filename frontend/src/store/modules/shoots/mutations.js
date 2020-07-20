@@ -17,13 +17,11 @@
 import Vue from 'vue'
 import split from 'lodash/split'
 import keyBy from 'lodash/keyBy'
-import assign from 'lodash/assign'
 import cloneDeep from 'lodash/cloneDeep'
 
 import {
   getKey,
-  getItemByKey,
-  isSortRequired
+  getItemByKey
 } from './helpers'
 
 const mutations = {
@@ -56,42 +54,30 @@ const mutations = {
       Vue.set(state.addonKyma, key, info)
     }
   },
-  SET_SORT_REQUIRED (state, value) {
-    state.sortRequired = value
-  },
-  PUT_ITEM (state, newItem) {
-    const key = getKey(newItem.metadata)
-    const oldItem = getItemByKey(state, key)
-    if (oldItem) {
-      if (oldItem.metadata.resourceVersion !== newItem.metadata.resourceVersion) {
-        if (isSortRequired(state, newItem, oldItem)) {
-          state.sortRequired = true
+  HANDLE_EVENTS (state, events) {
+    for (const { type, object } of events) {
+      const key = getKey(object.metadata)
+      switch (type) {
+        case 'ADDED':
+        case 'MODIFIED': {
+          Vue.set(state.shoots, key, object)
+          break
         }
-        Vue.set(state.shoots, key, assign(oldItem, newItem))
+        case 'DELETED': {
+          Vue.delete(state.shoots, key)
+          break
+        }
       }
-    } else {
-      state.sortRequired = true
-      Vue.set(state.shoots, key, newItem)
-    }
-  },
-  DELETE_ITEM (state, { metadata } = {}) {
-    const key = getKey(metadata)
-    if (getItemByKey(state, key)) {
-      state.sortRequired = true
-      Vue.delete(state.shoots, key)
     }
   },
   CLEAR_ALL (state) {
     state.shoots = {}
+    state.infos = {}
+    state.seedInfos = {}
+    state.addonKyma = {}
     state.sortedShoots = []
     state.filteredShoots = []
-    state.events = []
-  },
-  ADD_EVENT (state, event) {
-    state.events.push(event)
-  },
-  CLEAR_EVENTS (state) {
-    state.events = []
+    state.sortRequired = false
   },
   SET_SELECTION (state, metadata) {
     state.selection = metadata
@@ -124,6 +110,9 @@ const mutations = {
   RESET_NEW_SHOOT_RESOURCE (state, value) {
     state.newShootResource = value
     state.initialNewShootResource = cloneDeep(value)
+  },
+  SET_LOADING (state, value) {
+    state.loading = value
   }
 }
 

@@ -61,18 +61,8 @@ const actions = {
   clearAll ({ commit }) {
     commit('CLEAR_ALL')
   },
-  handleEvent ({ commit }, { type, object }) {
-    switch (type) {
-      case 'ADDED':
-      case 'MODIFIED':
-        commit('PUT_ITEM', object)
-        break
-      case 'DELETED':
-        commit('DELETE_ITEM', object)
-        break
-      default:
-        console.error('Undhandled event type', type)
-    }
+  handleEvents ({ commit }, events) {
+    commit('HANDLE_EVENTS', events)
   }
 }
 
@@ -89,33 +79,41 @@ const mutations = {
   RECEIVE (state, items) {
     state.all = groupBy(orderByUpdatedAt(items), 'metadata.number')
   },
-  PUT_ITEM (state, item) {
-    const number = get(item, 'metadata.number')
-    if (!state.all[number]) {
-      return Vue.set(state.all, number, [item])
-    }
-    const items = state.all[number]
-    const key = get(item, 'metadata.id')
-    const index = findIndex(items, ['metadata.id', key])
-    if (index !== -1) {
-      const oldItem = items[index]
-      if (get(oldItem, 'metadata.updated_at') <= get(item, 'metadata.updated_at')) {
-        items.splice(index, 1, item)
+  HANDLE_EVENTS (state, events) {
+    for (const { type, object } of events) {
+      const number = get(object, 'metadata.number')
+      const key = get(object, 'metadata.id')
+      const items = state.all[number]
+      switch (type) {
+        case 'ADDED':
+        case 'MODIFIED': {
+          if (!items) {
+            return Vue.set(state.all, number, [object])
+          } else {
+            const index = findIndex(items, ['metadata.id', key])
+            if (index !== -1) {
+              const item = items[index]
+              if (get(item, 'metadata.updated_at') <= get(object, 'metadata.updated_at')) {
+                items.splice(index, 1, object)
+              }
+            } else {
+              state.all[number] = orderByUpdatedAt(concat(items, object))
+            }
+          }
+          break
+        }
+        case 'DELETED': {
+          if (items) {
+            const index = findIndex(items, ['metadata.id', key])
+            if (index !== -1) {
+              items.splice(index, 1)
+            }
+          }
+          break
+        }
+        default:
+          console.error('Undhandled event type', type)
       }
-    } else {
-      state.all[number] = orderByUpdatedAt(concat(items, item))
-    }
-  },
-  DELETE_ITEM (state, item) {
-    const number = get(item, 'metadata.number')
-    if (!state.all[number]) {
-      return
-    }
-    const items = state.all[number]
-    const key = get(item, 'metadata.id')
-    const index = findIndex(items, ['metadata.id', key])
-    if (index !== -1) {
-      items.splice(index, 1)
     }
   },
   CLEAR_ALL (state) {

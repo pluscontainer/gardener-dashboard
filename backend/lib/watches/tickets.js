@@ -31,14 +31,14 @@ module.exports = (io, retryOptions = {}) => {
   ticketCache.onIssue(event => {
     const { type, object } = event
     io.to('subs://tickets')
-      .emit('ticket', { type, object })
+      .emit('tickets', { type, object })
   })
   ticketCache.onComment(event => {
     const { type, object } = event
     const projectName = encodeURIComponent(object.metadata.projectName)
     const name = encodeURIComponent(object.metadata.name)
-    io.to(`subs://comments/${projectName}/${name}`)
-      .emit('comment', { type, object })
+    io.to(`subs://comments/project/${projectName}/cluster/${name}`)
+      .emit('comments', { type, object })
   })
 
   async function loadAllOpenIssues () {
