@@ -123,6 +123,18 @@ module.exports = {
   getProjects () {
     return cache.getProjects()
   },
+  getUserProjects (user) {
+    const isMemberOf = project => _
+      .chain(project)
+      .get('spec.members')
+      .findIndex({
+        kind: 'User',
+        name: user.id
+      })
+      .gte(0)
+      .value()
+    return _.filter(cache.getProjects(), isMemberOf)
+  },
   findProjectByNamespace (namespace) {
     const project = cache.projects.find(['spec.namespace', namespace])
     if (!project) {

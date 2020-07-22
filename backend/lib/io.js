@@ -149,16 +149,28 @@ function onConnection (socket) {
 
   function subscribeShootsAllNamespaces (socket, { unhealthy }) {
     const user = getUserFromSocket(socket)
-    if (!user.isAdmin) {
-      throw new Forbidden(`User ${user.id} has no authorization for all namespaces`)
-    }
     let pathname = '/all-namespaces'
-    if (unhealthy) {
-      pathname += '/unhealthy-clusters'
+    if (user.isAdmin) {
+      if (unhealthy) {
+        pathname += '/unhealthy-clusters'
+      } else {
+        pathname += '/all-clusters'
+      }
+      return joinRoom(socket, 'subs://shoots' + pathname)
     } else {
-      pathname += '/all-clusters'
+      const projects = cache.getUserProjects(user)
+      const joinProjectRoom = project => {
+        const namespace = _.get(project, 'spec.namespace')
+        let pathname = '/namespace/' + encodeURIComponent(namespace)
+        if (unhealthy) {
+          pathname += '/unhealthy-clusters'
+        } else {
+          pathname += '/all-clusters'
+        }
+        return joinRoom(socket, 'subs://shoots' + pathname)
+      }
+      return Promise.all(_.map(projects, joinProjectRoom))
     }
-    return joinRoom(socket, 'subs://shoots' + pathname)
   }
 
   async function subscribeTickets (socket) {
@@ -209,7 +221,6 @@ function onConnection (socket) {
     try {
       await subscribe(socket, subscription)
     } catch (err) {
-      console.log('subscription', err)
       _.set(response, 'error', err.message)
     }
     callback(response)
