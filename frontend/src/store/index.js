@@ -1157,8 +1157,7 @@ const getters = {
     }
   },
   isKubeconfigEnabled (state) {
-    const { clientId, clientSecret, usePKCE = false } = get(state, 'kubeconfigData.oidc', {})
-    return !!(clientId && (clientSecret || usePKCE))
+    return false
   },
   onlyShootsWithIssues (state, getters) {
     return getters['shoots/onlyShootsWithIssues']
