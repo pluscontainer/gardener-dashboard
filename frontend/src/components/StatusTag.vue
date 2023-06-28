@@ -197,12 +197,12 @@ export default {
         return 'grey'
       }
       if (this.isError) {
-        return 'error'
+        return 'FF805A'
       }
       if (this.isProgressing && this.isAdmin) {
-        return 'info'
+        return '#009BF4'
       }
-      return 'primary'
+      return '#00DC91'
     },
     textColor () {
       if (this.isError) {
