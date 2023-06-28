@@ -197,7 +197,7 @@ export default {
         return 'grey'
       }
       if (this.isError) {
-        return 'FF805A'
+        return '#FF805A'
       }
       if (this.isProgressing && this.isAdmin) {
         return '#009BF4'

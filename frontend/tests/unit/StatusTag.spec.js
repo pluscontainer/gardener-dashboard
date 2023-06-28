@@ -94,7 +94,7 @@ describe('condition.vue', () => {
     const vmAdmin = wrapper.vm
     expect(vmAdmin.visible).toBe(true)
     expect(vmAdmin.isProgressing).toBe(true)
-    expect(vmAdmin.color).toBe('info')
+    expect(vmAdmin.color).toBe('#009BF4')
     expect(vmAdmin.chipStatus).toBe('Progressing')
     expect(vmAdmin.chipIcon).toBe('mdi-progress-alert')
   })
