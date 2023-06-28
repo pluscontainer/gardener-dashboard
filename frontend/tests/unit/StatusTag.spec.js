@@ -51,7 +51,7 @@ describe('condition.vue', () => {
     expect(vm.chipTooltip.title).toBe('foo-bar')
     expect(vm.chipIcon).toBe('')
     expect(vm.isError || vm.isUnknown || vm.isProgressing).toBe(false)
-    expect(vm.color).toBe('primary')
+    expect(vm.color).toBe('#00DC91')
     expect(vm.visible).toBe(true)
   })
 
@@ -71,7 +71,7 @@ describe('condition.vue', () => {
     expect(vm.isError).toBe(true)
     expect(vm.isUserError).toBe(true)
     expect(vm.chipIcon).toBe('mdi-account-alert-outline')
-    expect(vm.color).toBe('error')
+    expect(vm.color).toBe('#FF805A')
     expect(vm.visible).toBe(true)
   })
 
@@ -86,7 +86,7 @@ describe('condition.vue', () => {
     const vm = wrapper.vm
     expect(vm.visible).toBe(false)
     expect(vm.isProgressing).toBe(true)
-    expect(vm.color).toBe('primary')
+    expect(vm.color).toBe('#00DC91')
     expect(vm.chipStatus).toBe('Progressing')
     expect(vm.chipIcon).toBe('')
 
