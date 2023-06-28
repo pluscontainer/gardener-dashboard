@@ -1488,7 +1488,7 @@ __metadata:
     p-timeout: ^4.1.0
     path-to-regexp: ^6.2.1
     sanitize-html: ^2.7.0
-    semver: ^7.3.7
+    semver: ^7.5.2
     set-cookie-parser: ^2.4.8
     showdown: ^2.1.0
     socket.io: ^4.5.4
@@ -1564,7 +1564,7 @@ __metadata:
     regenerator-runtime: ^0.13.9
     sass: ^1.52.1
     sass-loader: ^12.6.0
-    semver: ^7.3.7
+    semver: ^7.5.2
     socket.io-client: ^4.5.4
     splitpanes: ^2.4.1
     statuses: ^2.0.1
@@ -11837,6 +11837,17 @@ __metadata:
   bin:
     semver: bin/semver.js
   checksum: ba9c7cbbf2b7884696523450a61fee1a09930d888b7a8d7579025ad93d459b2d1949ee5bbfeb188b2be5f4ac163544c5e98491ad6152df34154feebc2cc337c1
+  languageName: node
+  linkType: hard
+
+"semver@npm:^7.5.2":
+  version: 7.5.3
+  resolution: "semver@npm:7.5.3"
+  dependencies:
+    lru-cache: ^6.0.0
+  bin:
+    semver: bin/semver.js
+  checksum: 9d58db16525e9f749ad0a696a1f27deabaa51f66e91d2fa2b0db3de3e9644e8677de3b7d7a03f4c15bc81521e0c3916d7369e0572dbde250d9bedf5194e2a8a7
   languageName: node
   linkType: hard
 
