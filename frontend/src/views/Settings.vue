@@ -15,35 +15,6 @@ SPDX-License-Identifier: Apache-2.0
           <v-card-text>
             <v-row>
               <v-col cols="12">
-                <legend class="text-body-2 text--secondary">Color Scheme</legend>
-                <v-btn-toggle v-model="colorSchemeIndex" mandatory dense @click.native.stop class="pt-1">
-                  <v-tooltip top>
-                    <template v-slot:activator="{ on }">
-                      <v-btn small v-on="on">
-                        <v-icon small color="primary">mdi-white-balance-sunny</v-icon>
-                      </v-btn>
-                    </template>
-                    <span>Light Mode</span>
-                  </v-tooltip>
-                  <v-tooltip top>
-                    <template v-slot:activator="{ on }">
-                      <v-btn small v-on="on">
-                        <v-icon small color="primary">mdi-weather-night</v-icon>
-                      </v-btn>
-                    </template>
-                    <span>Dark Mode</span>
-                  </v-tooltip>
-                  <v-tooltip top>
-                    <template v-slot:activator="{ on }">
-                      <v-btn small v-on="on">
-                        <v-icon small color="primary">mdi-brightness-auto</v-icon>
-                      </v-btn>
-                    </template>
-                    <span>Automatically choose theme based on your system settings</span>
-                  </v-tooltip>
-                </v-btn-toggle>
-              </v-col>
-              <v-col cols="12">
                 <legend class="text-body-2 text--secondary">Log Level</legend>
                 <v-btn-toggle lebel="Log Level" v-model="logLevelIndex" dense class="pt-1">
                   <v-btn v-for="{ value, text, icon, color } in logLevels"
@@ -113,16 +84,6 @@ export default {
       set (index) {
         const { value } = this.logLevels[index]
         this.setLogLevel(value)
-      }
-    },
-    colorSchemeIndex: {
-      get () {
-        const index = this.colorSchemes.indexOf(this.colorScheme)
-        return index !== -1 ? index : 2
-      },
-      set (index) {
-        const colorScheme = this.colorSchemes[index]
-        this.setColorScheme(colorScheme)
       }
     }
   },
