@@ -95,32 +95,6 @@ SPDX-License-Identifier: Apache-2.0
               <div class="text-h6">{{displayName}}</div>
               <div class="text-caption">{{username}}</div>
               <div class="text-caption" v-if="isAdmin">Operator</div>
-              <v-btn-toggle v-model="colorSchemeIndex" borderless mandatory @click.native.stop class="mt-3">
-                <v-tooltip top>
-                  <template v-slot:activator="{ on }">
-                    <v-btn small v-on="on">
-                      <v-icon color="primary">mdi-white-balance-sunny</v-icon>
-                    </v-btn>
-                  </template>
-                  <span>Light Mode</span>
-                </v-tooltip>
-                <v-tooltip top>
-                  <template v-slot:activator="{ on }">
-                    <v-btn small v-on="on">
-                      <v-icon color="primary">mdi-weather-night</v-icon>
-                    </v-btn>
-                  </template>
-                  <span>Dark Mode</span>
-                </v-tooltip>
-                <v-tooltip top>
-                  <template v-slot:activator="{ on }">
-                    <v-btn small v-on="on">
-                      <v-icon color="primary">mdi-brightness-auto</v-icon>
-                    </v-btn>
-                  </template>
-                  <span>Automatically choose theme based on your system settings</span>
-                </v-tooltip>
-              </v-btn-toggle>
             </div>
           </v-card-title>
           <v-divider></v-divider>
@@ -131,7 +105,7 @@ SPDX-License-Identifier: Apache-2.0
             </v-btn>
           </v-card-actions>
           <v-card-actions class="px-3 pt-1">
-            <v-btn block text color="secondary" class="justify-start" :to="settingsLink" title="Setting">
+            <v-btn block text color="primary" class="justify-start" :to="settingsLink" title="Setting">
               <v-icon class="mr-3">mdi-cog</v-icon>
               Settings
             </v-btn>
@@ -252,9 +226,9 @@ export default {
           case 'light':
             return 0
           case 'dark':
-            return 1
+            return 0
           default:
-            return 2
+            return 0
         }
       },
       set (value) {
@@ -263,10 +237,10 @@ export default {
             this.setColorScheme('light')
             break
           case 1:
-            this.setColorScheme('dark')
+            this.setColorScheme('light')
             break
           default:
-            this.setColorScheme('auto')
+            this.setColorScheme('light')
             break
         }
       }

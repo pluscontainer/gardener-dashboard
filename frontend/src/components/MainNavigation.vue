@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
           <a href="/">
             <img src="/static/assets/logo.svg" class="logo" alt="gardener logo">
             <h1 class="main-navigation-title--text">{{ productName }}</h1>
-            <h2 class="primary--text">{{ customSubheader }}</h2>
+            <h2>{{ customSubheader }}</h2>
           </a>
         </div>
       </div>

@@ -9,11 +9,11 @@ import colors from 'vuetify/lib/util/colors'
 const theme = {
   themes: {
     light: {
-      primary: '#010869',
-      anchor: '#010869',
-      'main-background': '#efefec',
+      primary: '#009BF4',
+      anchor: '#333333',
+      'main-background': '#F0FAFF',
       'main-navigation-title': '#172b4d',
-      'toolbar-background': '#010869',
+      'toolbar-background': '#009BF4',
       'toolbar-title': '#efefec',
       'action-button': '#818181'
     },

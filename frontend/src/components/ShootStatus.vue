@@ -181,9 +181,9 @@ export default {
     },
     color () {
       if (this.isAborted || this.isStaleShoot) {
-        return 'grey'
+        return '#333333'
       } else if (this.isError) {
-        return 'error'
+        return '#FF805A'
       } else {
         return 'primary'
       }

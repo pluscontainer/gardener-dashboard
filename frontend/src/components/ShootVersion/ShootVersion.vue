@@ -19,7 +19,7 @@ SPDX-License-Identifier: Apache-2.0
             :outlined="!k8sPatchAvailable"
             :ripple="canUpdate"
             depressed
-            color="primary"
+            color="#333333"
           >
             <v-icon small v-if="availableK8sUpdates">mdi-menu-up</v-icon>
             {{shootK8sVersion}}
