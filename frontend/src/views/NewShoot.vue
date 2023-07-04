@@ -45,14 +45,6 @@ SPDX-License-Identifier: Apache-2.0
       </v-card>
       <v-card flat class="mt-4">
         <v-card-title class="text-subtitle-1 toolbar-title--text toolbar-background cardTitle">
-          Control Plane High Availability
-        </v-card-title>
-        <v-card-text>
-          <manage-control-plane-high-availability :user-inter-action-bus="userInterActionBus"/>
-       </v-card-text>
-      </v-card>
-      <v-card flat class="mt-4">
-        <v-card-title class="text-subtitle-1 toolbar-title--text toolbar-background cardTitle">
           DNS Configuration
         </v-card-title>
         <v-card-text>
@@ -154,7 +146,6 @@ import MaintenanceComponents from '@/components/ShootMaintenance/MaintenanceComp
 import MaintenanceTime from '@/components/ShootMaintenance/MaintenanceTime'
 import ManageShootAddons from '@/components/ShootAddons/ManageAddons'
 import ManageShootDns from '@/components/ShootDns/ManageDns'
-import ManageControlPlaneHighAvailability from '@/components/ControlPlaneHighAvailability/ManageControlPlaneHighAvailability'
 
 import asyncRef from '@/mixins/asyncRef'
 
@@ -181,8 +172,7 @@ export default {
     ManageHibernationSchedule,
     ManageWorkers,
     GMessage,
-    ConfirmDialog,
-    ManageControlPlaneHighAvailability
+    ConfirmDialog
   },
   mixins: [
     asyncRef('manageWorkers'),
@@ -379,11 +369,7 @@ export default {
         unset(shootResource, 'metadata.annotations["dashboard.garden.sapcloud.io/no-hibernation-schedule"]')
       }
 
-      if (this.controlPlaneFailureToleranceType) {
-        set(shootResource, 'spec.controlPlane.highAvailability.failureTolerance.type', this.controlPlaneFailureToleranceType)
-      } else {
-        unset(shootResource, 'spec.controlPlane')
-      }
+      set(shootResource, 'spec.controlPlane.highAvailability.failureTolerance.type', 'node')
 
       return shootResource
     },
