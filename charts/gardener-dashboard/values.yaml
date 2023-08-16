@@ -10,6 +10,22 @@ global:
     # userName: runtime-cluster:system:serviceaccount:garden:gardener-dashboard
   dashboard:
     replicaCount: 1
+    # If connections from a particular client should not be passed to the same Pod each time, set the session affinity to "None".
+    sessionAffinity: ClientIP
+
+    image:
+      repository: ghcr.io/plusserver/gardener-dashboard
+      tag: latest
+      pullPolicy: IfNotPresent
+
+    # additional labels to add to the dashboard deployment
+    deploymentLabels: {}
+    # additional annotations to add to the dashboard deployment
+    deploymentAnnotations: {}
+    # additional labels to add to all dashboard pods (e.g. security policies)
+    podLabels: {}
+    # additional annotations to add to all dashboard pods
+    podAnnotations: {}
 
     serviceAccountName: gardener-dashboard
 
@@ -26,12 +42,6 @@ global:
     #   minAllowedMemory: 100Mi
     #   maxAllowedCpu: 500m
     #   maxAllowedMemory: 500Mi
-
-    image:
-      repository: ghcr.io/plusserver/gardener-dashboard
-      tag: latest
-      pullPolicy: IfNotPresent
-
 
     # sessionSecret is used for signing and encrytion of session data
     sessionSecret: ~
@@ -80,10 +90,10 @@ global:
       # nodeOptions: [--optimize-for-size, --max-old-space-size=460, --gc-interval=100]
 
     ingress:
+      ingressClassName: nginx
       annotations:
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
         nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
-        kubernetes.io/ingress.class: nginx
       # # configuration of hosts used for rules and tls
       # hosts:
       # - dashboard.ingress.example.org
