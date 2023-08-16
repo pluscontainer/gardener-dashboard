@@ -229,6 +229,7 @@ export default {
       'dnsSecretList',
       'shootList',
       'canCreateSecrets',
+      'sortedCloudProviderKindList',
       'sortedCloudProviderKindListForSecretEdit',
       'sortedCloudProviderKindListForSecretCreation'
     ]),
@@ -261,13 +262,6 @@ export default {
           align: 'start',
           value: 'infrastructure',
           sortable: true,
-          defaultSelected: true
-        },
-        {
-          text: 'DETAILS',
-          align: 'start',
-          value: 'details',
-          sortable: false,
           defaultSelected: true
         },
         {

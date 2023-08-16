@@ -37,14 +37,6 @@ SPDX-License-Identifier: Apache-2.0
           </v-list-item-title>
         </v-list-item-content>
       </v-list-item>
-      <v-list-item v-if="secret">
-        <v-list-item-icon/>
-        <secret-details-item-content
-          class="pb-2"
-          infra
-          :secret="secret"
-          details-title />
-      </v-list-item>
       <v-divider inset></v-divider>
       <template v-if="showSeedInfo">
         <v-list-item>

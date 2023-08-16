@@ -11,4 +11,4 @@ spec:
   minAvailable: 2
   selector:
     matchLabels:
-      app: gardener-dashboard
+      app.kubernetes.io/name: gardener-dashboard

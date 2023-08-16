@@ -1,4 +1,7 @@
-{{- if .Values.global.dashboard.enabled }}
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,12 +16,20 @@ metadata:
 data:
   login-config.json: |
     {
-       "landingPageUrl": {{ quote .Values.global.dashboard.frontendConfig.landingPageUrl }},
-       {{- if .Values.global.dashboard.oidc }}
-       "loginTypes": ["oidc", "token"]
-       {{- else }}
-       "loginTypes": ["token"]
-       {{- end }}
+      "productName": {{ quote .Values.global.dashboard.frontendConfig.productName }},
+      "productSlogan": {{ quote .Values.global.dashboard.frontendConfig.productSlogan }},
+      "documentationURL": {{ quote .Values.global.dashboard.frontendConfig.documentationURL }},
+      "supportURL": {{ quote .Values.global.dashboard.frontendConfig.supportURL }},
+      "landingPageUrl": {{ quote .Values.global.dashboard.frontendConfig.landingPageUrl }},
+      "landingPageName": {{ quote .Values.global.dashboard.frontendConfig.landingPageName }},
+      "customLandingPagePre": {{ quote .Values.global.dashboard.frontendConfig.customLandingPagePre }},
+      "customLandingPagePost": {{ quote .Values.global.dashboard.frontendConfig.customLandingPagePost }},
+
+      {{- if .Values.global.dashboard.oidc.enabled }}
+      "loginTypes": ["oidc", "token"]
+      {{- else }}
+      "loginTypes": ["token"]
+      {{- end }}
     }
   config.yaml: |
     ---

@@ -23,13 +23,6 @@ SPDX-License-Identifier: Apache-2.0
     <td v-if="selectedHeaders.dnsProvider">
       <vendor extended :cloud-provider-kind="item.dnsProvider"></vendor>
     </td>
-    <td v-if="selectedHeaders.details">
-      <v-list color="transparent">
-        <v-list-item class="pa-0">
-          <secret-details-item-content dns :secret="item.secret"></secret-details-item-content>
-        </v-list-item>
-      </v-list>
-    </td>
     <td v-if="selectedHeaders.relatedShootCount">
       <div class="d-flex" :class="{'font-weight-light text--disabled' : !item.relatedShootCount}">
         {{item.relatedShootCountLabel}}
@@ -70,13 +63,11 @@ SPDX-License-Identifier: Apache-2.0
 
 import { mapTableHeader } from '@/utils'
 import Vendor from '@/components/Vendor'
-import SecretDetailsItemContent from '@/components/SecretDetailsItemContent'
 import { mapGetters } from 'vuex'
 
 export default {
   components: {
-    Vendor,
-    SecretDetailsItemContent
+    Vendor
   },
   props: {
     item: {

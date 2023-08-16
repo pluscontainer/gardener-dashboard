@@ -43,6 +43,18 @@ spec:
         {{- toYaml .Values.global.dashboard.podLabels | nindent 8 }}
         {{- end }}
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - gardener-dashboard
+              topologyKey: kubernetes.io/hostname
       volumes:
       - name: gardener-dashboard-config
         configMap:
@@ -90,6 +102,10 @@ spec:
       {{- end }}
       containers:
         - name: gardener-dashboard
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
           {{- if .Values.global.dashboard.nodeOptions }}
           args:
           {{- range .Values.global.dashboard.nodeOptions }}
