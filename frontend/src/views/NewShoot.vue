@@ -434,8 +434,7 @@ export default {
 
       const name = get(shootResource, 'metadata.name')
       const kubernetesVersion = get(shootResource, 'spec.kubernetes.version')
-      // Patch: Issue static kubeconfig by default
-      const enableStaticTokenKubeconfig = true
+      const enableStaticTokenKubeconfig = false
       const purpose = get(shootResource, 'spec.purpose')
       this.purpose = purpose
       await this.$refs.clusterDetails.setDetailsData({
