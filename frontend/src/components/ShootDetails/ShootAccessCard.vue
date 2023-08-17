@@ -95,7 +95,7 @@ SPDX-License-Identifier: Apache-2.0
     <v-divider v-if="isCredentialsTileVisible && (isKubeconfigTileVisible || isGardenctlTileVisible)" inset></v-divider>
 
     <v-list v-if="isKubeconfigTileVisible">
-      <shoot-kubeconfig :shoot-item="shootItem" :showIcon="false" type="token"></shoot-kubeconfig>
+      <shoot-kubeconfig v-if="supportsStaticKubeconfig"  :shoot-item="shootItem" :showIcon="false" type="token"></shoot-kubeconfig>
       <shoot-kubeconfig :shoot-item="shootItem" :showIcon="false" type="adminkubeconfig"></shoot-kubeconfig>
     </v-list>
 
@@ -234,6 +234,15 @@ export default {
     },
     visibilityIcon () {
       return this.showToken ? 'mdi-eye-off' : 'mdi-eye'
+    },
+    supportsStaticKubeconfig () {
+      // Check if k8s minor version is greater than 26 (1.26.x) -> Static kubeconfig isn't supported
+      const shootK8sVersion = get(this.shootItem, 'spec.kubernetes.version')
+      if (parseInt(shootK8sVersion.split('.')[1]) > 26) {
+        return false
+      }
+
+      return true
     }
   },
   methods: {
