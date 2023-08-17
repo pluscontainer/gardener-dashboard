@@ -15,6 +15,7 @@ const authorization = require('./authorization')
 const logger = require('../logger')
 const _ = require('lodash')
 const semver = require('semver')
+const config = require('../config')
 
 const { decodeBase64, getSeedNameFromShoot, getSeedIngressDomain, projectFilter } = utils
 const { getSeed } = cache
@@ -338,12 +339,25 @@ exports.info = async function ({ user, namespace, name }) {
     as we agreed that also project viewers should be able to see the monitoring credentials.
     Usually project viewers do not have the permission to read the <shootName>.monitoring credential.
     Our assumption: if the user can read the shoot resource, the user can be considered as project viewer.
-    This is only a temporary workaround until a Grafana SSO solution is implemented https://github.com/gardener/monitoring/issues/11.
+    This is only a temporary workaround until a Plutono SSO solution is implemented https://github.com/gardener/monitoring/issues/11.
   */
   await assignMonitoringSecret(dashboardClient, data, namespace, name)
 
   return data
 }
+
+async function getGardenClusterIdentity () {
+  const configClusterIdentity = _.get(config, 'clusterIdentity')
+
+  if (configClusterIdentity) {
+    return configClusterIdentity
+  }
+
+  const clusterIdentity = await dashboardClient.core.configmaps.get('kube-system', 'cluster-identity')
+
+  return clusterIdentity.data['cluster-identity']
+}
+exports.getGardenClusterIdentity = getGardenClusterIdentity
 
 async function getKubeconfigGardenlogin (client, shoot) {
   if (!shoot.status?.advertisedAddresses?.length) {
@@ -354,13 +368,11 @@ async function getKubeconfigGardenlogin (client, shoot) {
 
   const [
     ca,
-    clusterIdentity
+    gardenClusterIdentity
   ] = await Promise.all([
     client.core.secrets.get(namespace, `${name}.ca-cluster`),
-    dashboardClient.core.configmaps.get('kube-system', 'cluster-identity')
+    getGardenClusterIdentity()
   ])
-
-  const gardenClusterIdentity = clusterIdentity.data['cluster-identity']
 
   const caData = ca.data?.['ca.crt']
 

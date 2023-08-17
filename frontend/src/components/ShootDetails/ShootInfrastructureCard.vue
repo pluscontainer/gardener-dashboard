@@ -18,7 +18,7 @@ SPDX-License-Identifier: Apache-2.0
           <v-list-item-subtitle>
             <vendor title extended :cloud-provider-kind="shootCloudProviderKind" :region="shootRegion" :zones="shootZones"></vendor>
           </v-list-item-subtitle>
-          <v-list-item-title class="pt-1">
+          <v-list-item-title class="pt-1 d-flex flex-shrink-1">
             <vendor extended :cloud-provider-kind="shootCloudProviderKind" :region="shootRegion" :zones="shootZones"></vendor>
           </v-list-item-title>
         </v-list-item-content>
@@ -129,7 +129,8 @@ SPDX-License-Identifier: Apache-2.0
                   :type="type"
                   :domains="domains"
                   :zones="zones"
-                  :key="secretName">
+                  :key="secretName"
+                  :secret="getCloudProviderSecretByName({ name: secretName, namespace: shootNamespace })">
               </dns-provider>
             </template>
             <span v-else>No DNS provider configured</span>
@@ -221,7 +222,9 @@ export default {
       'namespaces',
       'cloudProfileByName',
       'floatingPoolsByCloudProfileNameAndRegionAndDomain',
-      'canPatchShootsBinding'
+      'canPatchShootsBinding',
+      'infrastructureSecretList',
+      'getCloudProviderSecretByName'
     ]),
     showSeedInfo () {
       return !!this.shootSeedName
@@ -276,6 +279,11 @@ export default {
         return 'custom'
       }
       return 'generated'
+    },
+    secret () {
+      const secrets = this.infrastructureSecretList
+      const secret = find(secrets, ['metadata.name', this.shootSecretBindingName])
+      return secret
     }
   }
 }

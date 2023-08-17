@@ -40,11 +40,11 @@ SPDX-License-Identifier: Apache-2.0
             <v-subheader>Create Infrastructure Secret</v-subheader>
             <v-list-item v-for="infrastructure in sortedCloudProviderKindListForSecretCreation" :key="infrastructure" @click="openSecretAddDialog(infrastructure)">
               <v-list-item-action>
-                 <infra-icon :value="infrastructure" :size="24"></infra-icon>
+                <infra-icon :value="infrastructure" :size="24"></infra-icon>
               </v-list-item-action>
               <v-list-item-content class="primary--text">
                 <v-list-item-title>
-                    {{infrastructure}}
+                  {{infrastructure}}
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
@@ -57,7 +57,13 @@ SPDX-License-Identifier: Apache-2.0
         ></table-column-selection>
       </v-toolbar>
 
-      <v-card-text v-if="!infrastructureSecretItems.length">
+      <v-card-text v-if="!sortedCloudProviderKindList.length">
+        <v-alert class="ma-3" type="warning">
+          No supported cloud profile found.
+          There must be at least one cloud profile supported by the dashboard as well as a seed that matches it's seed selector.
+        </v-alert>
+      </v-card-text>
+      <v-card-text v-else-if="!infrastructureSecretItems.length">
         <div class="text-h6 grey--text text--darken-1 my-4">Add Infrastructure Secrets to your project</div>
         <p class="text-body-1">
           Before you can provision and access a Kubernetes cluster, you need to add infrastructure account credentials. The Gardener needs the credentials to provision and operate the infrastructure for your Kubernetes cluster.
@@ -171,7 +177,10 @@ SPDX-License-Identifier: Apache-2.0
 
 <script>
 import { mapGetters } from 'vuex'
-import { isOwnSecret, mapTableHeader } from '@/utils'
+import {
+  isOwnSecret,
+  mapTableHeader
+} from '@/utils'
 import get from 'lodash/get'
 import SecretDialogWrapper from '@/components/dialogs/SecretDialogWrapper'
 import TableColumnSelection from '@/components/TableColumnSelection.vue'
@@ -220,6 +229,7 @@ export default {
       'dnsSecretList',
       'shootList',
       'canCreateSecrets',
+      'sortedCloudProviderKindList',
       'sortedCloudProviderKindListForSecretEdit',
       'sortedCloudProviderKindListForSecretCreation'
     ]),
@@ -255,13 +265,6 @@ export default {
           defaultSelected: true
         },
         {
-          text: 'DETAILS',
-          align: 'start',
-          value: 'details',
-          sortable: false,
-          defaultSelected: true
-        },
-        {
           text: 'USED BY',
           align: 'start',
           value: 'relatedShootCount',
@@ -290,10 +293,8 @@ export default {
         isOwnSecret: isOwnSecret(secret),
         secretNamespace: secret.metadata.secretRef.namespace,
         secretName: secret.metadata.secretRef.name,
-        infrastructure: `${secret.metadata.cloudProviderKind}--${secret.metadata.cloudProfileName}`,
         infrastructureName: secret.metadata.cloudProviderKind,
         cloudProfileName: secret.metadata.cloudProfileName,
-        details: this.getSecretDetailsInfra(secret),
         relatedShootCount: this.relatedShootCountInfra(secret),
         relatedShootCountLabel: this.relatedShootCountLabel(this.relatedShootCountInfra(secret)),
         isSupportedCloudProvider: includes(this.sortedCloudProviderKindListForSecretEdit, secret.metadata.cloudProviderKind),
@@ -363,7 +364,6 @@ export default {
         secretNamespace: secret.metadata.secretRef.namespace,
         secretName: secret.metadata.secretRef.name,
         dnsProvider: secret.metadata.dnsProviderName,
-        details: this.getSecretDetailsDns(secret),
         relatedShootCount: this.relatedShootCountDns(secret),
         relatedShootCountLabel: this.relatedShootCountLabel(this.relatedShootCountDns(secret)),
         isSupportedCloudProvider: includes(this.dnsProviderTypes, secret.metadata.dnsProviderName),

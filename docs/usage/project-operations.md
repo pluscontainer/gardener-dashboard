@@ -252,8 +252,6 @@ To create a new cluster using the command line, you need a YAML definition of th
             location: Europe/Kiev
       kubernetes:
         allowPrivilegedContainers: true
-        kubeAPIServer:
-          enableBasicAuthentication: false
         kubeControllerManager:
           nodeCIDRMaskSize: 24
         kubeProxy:
@@ -373,6 +371,6 @@ The name of the Secret containing the kubeconfig is in the form `<cluster-name>.
 
 ## Related Links
 
-[Accessing the Gardener API Through the Dashboard](./gardener-api.md)
+- [Accessing the Gardener API Through the Dashboard](./gardener-api.md)
 
-[Authenticating with an Identity Provider](https://github.com/gardener/documentation/blob/master/website/documentation/tutorials/oidc-login/_index.md).
+- [Authenticating with an Identity Provider](https://github.com/gardener/documentation/blob/master/website/documentation/guides/administer_shoots/oidc-login/_index.md).

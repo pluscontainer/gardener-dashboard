@@ -176,7 +176,7 @@ const actions = {
 
       if (info.seedShootIngressDomain) {
         const baseHost = info.seedShootIngressDomain
-        info.grafanaUrl = `https://gu-${baseHost}`
+        info.plutonoUrl = `https://gu-${baseHost}`
 
         info.prometheusUrl = `https://p-${baseHost}`
 
@@ -226,6 +226,11 @@ const actions = {
       metadata: {
         namespace: rootState.namespace
       }
+    }
+
+    if (!rootGetters.sortedCloudProviderKindList.length) {
+      Vue.logger.warn('Could not reset new shoot resource as there is no supported cloud profile')
+      return
     }
 
     const infrastructureKind = head(rootGetters.sortedCloudProviderKindList)
@@ -280,7 +285,7 @@ const actions = {
     if (!isEmpty(firewallImage)) {
       set(shootResource, 'spec.provider.infrastructureConfig.firewall.image', firewallImage)
     }
-    const firewallSizes = map(rootGetters.firewallSizesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones: [partitionID] }), 'name')
+    const firewallSizes = map(rootGetters.firewallSizesByCloudProfileNameAndRegion({ cloudProfileName, region }), 'name')
     const firewallSize = head(firewallSizes)
     if (!isEmpty(firewallSize)) {
       set(shootResource, 'spec.provider.infrastructureConfig.firewall.size', firewallImage)
@@ -353,7 +358,7 @@ const actions = {
   setFocusMode ({ commit, getters }, value) {
     let sortedUids
     if (value) {
-      const sortedShoots = getters.sortItems(state.filteredShoots, state.sortBy, state.sortDesc)
+      const sortedShoots = getters.sortItems([...state.filteredShoots], state.sortBy, state.sortDesc)
       sortedUids = map(sortedShoots, 'metadata.uid')
     }
     commit('SET_FOCUS_MODE', { value, sortedUids })

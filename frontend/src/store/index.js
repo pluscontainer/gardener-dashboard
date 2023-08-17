@@ -132,39 +132,6 @@ const state = {
   splitpaneResize: null,
   splitpaneLayouts: {},
   projectTerminalShortcuts: null,
-  conditionCache: {
-    APIServerAvailable: {
-      displayName: 'API Server',
-      shortName: 'API',
-      description: 'Indicates whether the shoot\'s kube-apiserver is healthy and available. If this is in error state then no interaction with the cluster is possible. The workload running on the cluster is most likely not affected.'
-    },
-    ControlPlaneHealthy: {
-      displayName: 'Control Plane',
-      shortName: 'CP',
-      description: 'Indicates whether all control plane components are up and running.',
-      showAdminOnly: true
-    },
-    EveryNodeReady: {
-      displayName: 'Nodes',
-      shortName: 'N',
-      description: 'Indicates whether all nodes registered to the cluster are healthy and up-to-date. If this is in error state there then there is probably an issue with the cluster nodes. In worst case there is currently not enough capacity to schedule all the workloads/pods running in the cluster and that might cause a service disruption of your applications.'
-    },
-    SystemComponentsHealthy: {
-      displayName: 'System Components',
-      shortName: 'SC',
-      description: 'Indicates whether all system components in the kube-system namespace are up and running. Gardener manages these system components and should automatically take care that the components become healthy again.'
-    },
-    MaintenancePreconditionsSatisfied: {
-      displayName: 'Maintenance Preconditions Satisfied',
-      shortName: 'M',
-      description: 'Indicates whether Gardener is able to perform required actions during maintenance. If you do not resolve this issue your cluster will eventually turn into an error state.'
-    },
-    HibernationPossible: {
-      displayName: 'Hibernation Preconditions Satisfied',
-      shortName: 'H',
-      description: 'Indicates whether Gardener is able to hibernate this cluster. If you do not resolve this issue your hibernation schedule may not have any effect.'
-    }
-  },
   prefersColorScheme: null
 }
 class Shortcut {
@@ -420,7 +387,7 @@ const getters = {
 
     return networkList
   },
-  machineTypesOrVolumeTypesByCloudProfileNameAndRegionAndZones (state, getters) {
+  machineTypesOrVolumeTypesByCloudProfileNameAndRegion (state, getters) {
     const machineAndVolumeTypePredicate = unavailableItems => {
       return item => {
         if (item.usable === false) {
@@ -433,7 +400,7 @@ const getters = {
       }
     }
 
-    return ({ type, cloudProfileName, region, zones }) => {
+    return ({ type, cloudProfileName, region }) => {
       if (!cloudProfileName) {
         return []
       }
@@ -442,34 +409,37 @@ const getters = {
         return []
       }
       const items = cloudProfile.data[type]
-      if (!region || !zones) {
+      if (!region) {
         return items
       }
+      const zones = getters.zonesByCloudProfileNameAndRegion({ cloudProfileName, region })
+
       const regionObject = find(cloudProfile.data.regions, { name: region })
       let regionZones = get(regionObject, 'zones', [])
       regionZones = filter(regionZones, regionZone => includes(zones, regionZone.name))
-      const unavailableItems = flatMap(regionZones, zone => {
+      const unavailableItems = map(regionZones, zone => {
         if (type === 'machineTypes') {
           return zone.unavailableMachineTypes
         } else if (type === 'volumeTypes') {
           return zone.unavailableVolumeTypes
         }
       })
-      return filter(items, machineAndVolumeTypePredicate(unavailableItems))
+      const unavailableItemsInAllZones = intersection(...unavailableItems)
+
+      return filter(items, machineAndVolumeTypePredicate(unavailableItemsInAllZones))
     }
   },
   machineTypesByCloudProfileName (state, getters) {
     return ({ cloudProfileName }) => {
-      return getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegionAndZones({ type: 'machineTypes', cloudProfileName })
+      return getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegion({ type: 'machineTypes', cloudProfileName })
     }
   },
-  machineTypesByCloudProfileNameAndRegionAndZonesAndArchitecture (state, getters) {
-    return ({ cloudProfileName, region, zones, architecture }) => {
-      let machineTypes = getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegionAndZones({
+  machineTypesByCloudProfileNameAndRegionAndArchitecture (state, getters) {
+    return ({ cloudProfileName, region, architecture }) => {
+      let machineTypes = getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegion({
         type: 'machineTypes',
         cloudProfileName,
-        region,
-        zones
+        region
       })
       machineTypes = map(machineTypes, item => {
         const machineType = { ...item }
@@ -480,13 +450,12 @@ const getters = {
       return filter(machineTypes, { architecture })
     }
   },
-  machineArchitecturesByCloudProfileNameAndRegionAndZones (state, getters) {
+  machineArchitecturesByCloudProfileNameAndRegion (state, getters) {
     return ({ cloudProfileName, region, zones }) => {
-      const machineTypes = getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegionAndZones({
+      const machineTypes = getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegion({
         type: 'machineTypes',
         cloudProfileName,
-        region,
-        zones
+        region
       })
       const architectures = uniq(map(machineTypes, 'architecture'))
       return architectures.sort()
@@ -494,12 +463,12 @@ const getters = {
   },
   volumeTypesByCloudProfileName (state, getters) {
     return ({ cloudProfileName }) => {
-      return getters.volumeTypesByCloudProfileNameAndRegionAndZones({ cloudProfileName })
+      return getters.volumeTypesByCloudProfileNameAndRegion({ cloudProfileName })
     }
   },
-  volumeTypesByCloudProfileNameAndRegionAndZones (state, getters) {
-    return ({ cloudProfileName, region, zones }) => {
-      return getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegionAndZones({ type: 'volumeTypes', cloudProfileName, region, zones })
+  volumeTypesByCloudProfileNameAndRegion (state, getters) {
+    return ({ cloudProfileName, region }) => {
+      return getters.machineTypesOrVolumeTypesByCloudProfileNameAndRegion({ type: 'volumeTypes', cloudProfileName, region })
     }
   },
   machineImagesByCloudProfileName (state, getters) {
@@ -912,14 +881,14 @@ const getters = {
       return partitionIDs
     }
   },
-  firewallSizesByCloudProfileNameAndRegionAndZones (state, getters) {
+  firewallSizesByCloudProfileNameAndRegion (state, getters) {
     return ({ cloudProfileName, region }) => {
-      // Firewall Sizes equals to list of image types for this zone
+      // Firewall Sizes equals to list of image types for this cloud provider
       const cloudProfile = getters.cloudProfileByName(cloudProfileName)
       if (get(cloudProfile, 'metadata.cloudProviderKind') !== 'metal') {
         return
       }
-      const firewallSizes = getters.machineTypesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region })
+      const firewallSizes = getters.machineTypesByCloudProfileNameAndRegion({ cloudProfileName, region })
       return firewallSizes
     }
   },
@@ -1198,10 +1167,10 @@ const getters = {
       const id = uuidv4()
       const name = `worker-${shortRandomString(5)}`
       const zones = !isEmpty(availableZones) ? [sample(availableZones)] : undefined
-      const architecture = head(getters.machineArchitecturesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones }))
-      const machineTypesForZone = getters.machineTypesByCloudProfileNameAndRegionAndZonesAndArchitecture({ cloudProfileName, region, zones, architecture })
+      const architecture = head(getters.machineArchitecturesByCloudProfileNameAndRegion({ cloudProfileName, region }))
+      const machineTypesForZone = getters.machineTypesByCloudProfileNameAndRegionAndArchitecture({ cloudProfileName, region, architecture })
       const machineType = head(machineTypesForZone) || {}
-      const volumeTypesForZone = getters.volumeTypesByCloudProfileNameAndRegionAndZones({ cloudProfileName, region, zones })
+      const volumeTypesForZone = getters.volumeTypesByCloudProfileNameAndRegion({ cloudProfileName, region })
       const volumeType = head(volumeTypesForZone) || {}
       const machineImage = getters.defaultMachineImageForCloudProfileNameAndMachineType(cloudProfileName, machineType)
       const minVolumeSize = getters.minimumVolumeSizeByCloudProfileNameAndRegion({ cloudProfileName, region })
@@ -1557,10 +1526,6 @@ const actions = {
   setConfiguration ({ commit, getters }, value) {
     commit('SET_CONFIGURATION', value)
 
-    forEach(value.knownConditions, (conditionValue, conditionKey) => {
-      commit('setCondition', { conditionKey, conditionValue })
-    })
-
     const themes = get(Vue, 'vuetify.framework.theme.themes')
     if (themes) {
       for (const name of ['light', 'dark']) {
@@ -1675,9 +1640,6 @@ const mutations = {
   },
   SET_ALERT (state, value) {
     state.alert = value
-  },
-  setCondition (state, { conditionKey, conditionValue }) {
-    Vue.set(state.conditionCache, conditionKey, conditionValue)
   },
   SET_FOCUSED_ELEMENT_ID (state, value) {
     state.focusedElementId = value

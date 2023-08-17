@@ -23,27 +23,6 @@ SPDX-License-Identifier: Apache-2.0
     <td v-if="selectedHeaders.infrastructure">
       <vendor extended :cloud-provider-kind="item.infrastructureName" :cloud-profile-name="item.cloudProfileName"></vendor>
     </td>
-    <td v-if="selectedHeaders.details">
-      <v-list color="transparent">
-        <v-list-item class="pa-0">
-          <v-list-item-content class="pa-0">
-            <v-list-item-subtitle>
-              <span v-for="({ label }, index) in item.details" :key="label">
-                <span>{{label}}</span>
-                <span v-if="index !== item.details.length - 1"> / </span>
-              </span>
-            </v-list-item-subtitle>
-            <v-list-item-title>
-              <span v-for="({ value, label }, index) in item.details" :key="label">
-                <span v-if="value">{{value}}</span>
-                <span v-else class="font-weight-light text--disabled">unknown</span>
-                <span v-if="index !== item.details.length - 1"> / </span>
-              </span>
-            </v-list-item-title>
-          </v-list-item-content>
-        </v-list-item>
-      </v-list>
-    </td>
     <td v-if="selectedHeaders.relatedShootCount">
       <div class="d-flex" :class="{'font-weight-light text--disabled' : !item.relatedShootCount}">
         {{item.relatedShootCountLabel}}

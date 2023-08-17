@@ -33,6 +33,11 @@ import { transformHtml } from '@/utils'
 import some from 'lodash/some'
 
 export default {
+  data () {
+    return {
+      animateOnAppear: false
+    }
+  },
   computed: {
     ...mapGetters([
       'seedsByCloudProfileName',
@@ -109,6 +114,7 @@ export default {
         }
       })
     }
+    this.animateOnAppear = true
   }
 }
 </script>
