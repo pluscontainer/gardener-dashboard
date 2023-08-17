@@ -33,9 +33,6 @@ import { transformHtml } from '@/utils'
 import some from 'lodash/some'
 
 export default {
-  components: {
-    ExternalLink
-  },
   data () {
     return {
       animateOnAppear: false
