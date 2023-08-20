@@ -95,8 +95,8 @@ SPDX-License-Identifier: Apache-2.0
     <v-divider v-if="isCredentialsTileVisible && (isKubeconfigTileVisible || isGardenctlTileVisible)" inset></v-divider>
 
     <v-list v-if="isKubeconfigTileVisible">
-      <shoot-kubeconfig v-if="supportsStaticKubeconfig"  :shoot-item="shootItem" :showIcon="false" type="token"></shoot-kubeconfig>
-      <shoot-kubeconfig :shoot-item="shootItem" :showIcon="false" type="adminkubeconfig"></shoot-kubeconfig>
+      <shoot-kubeconfig :shoot-item="shootItem" :showIcon="false" type="token"></shoot-kubeconfig>
+      <shoot-kubeconfig v-if="hasAdminKubeconfigEnabled" :shoot-item="shootItem" :showIcon="false" type="adminkubeconfig"></shoot-kubeconfig>
     </v-list>
 
     <v-divider v-if="isKubeconfigTileVisible && isGardenctlTileVisible" inset></v-divider>
@@ -183,6 +183,9 @@ export default {
     },
     hasDashboardTokenAuth () {
       return get(this.shootItem, 'spec.addons.kubernetesDashboard.authenticationMode', 'basic') === 'token'
+    },
+    hasAdminKubeconfigEnabled () {
+      return get(this.cfg, 'shootAdminKubeconfig.enabled', false)
     },
     kubeconfig () {
       return get(this.shootInfo, 'kubeconfig')

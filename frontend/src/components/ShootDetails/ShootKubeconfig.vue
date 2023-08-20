@@ -15,21 +15,20 @@ SPDX-License-Identifier: Apache-2.0
         <v-list-item-subtitle v-if="isKubeconfigAvailable" class="wrap-text">Does not contain credentials (requires <span class="font-family-monospace">gardenlogin</span> kubectl plugin)</v-list-item-subtitle>
         <v-list-item-subtitle v-else>Gardenlogin kubeconfig currently not available</v-list-item-subtitle>
       </v-list-item-content>
-      <v-list-item-content v-if="isStaticKubeconfigLoginType">
+      <v-list-item-content v-if="isStaticKubeconfigType">
         <v-list-item-title>Kubeconfig - Static Token</v-list-item-title>
         <v-list-item-subtitle v-if="!shootEnableStaticTokenKubeconfig">Static token kubeconfig is disabled for this cluster</v-list-item-subtitle>
         <v-list-item-subtitle v-else-if="!isKubeconfigAvailable">Static token kubeconfig currently not available</v-list-item-subtitle>
         <v-list-item-subtitle class="wrap-text" v-else>Contains static token credential for accessing the cluster API</v-list-item-subtitle>
       </v-list-item-content>
-      <v-list-item-content v-if="isAdminKubeconfigLoginType">
+      <v-list-item-content v-if="isAdminKubeconfigType">
         <v-list-item-title>Admin Kubeconfig</v-list-item-title>
-        <v-list-item-subtitle v-if="!isKubeconfigAvailable">Request a time limited kubeconfig</v-list-item-subtitle>
-        <v-list-item-subtitle class="wrap-text" v-else>Retreive your kubeconfig</v-list-item-subtitle>
+        <v-list-item-subtitle>Request a kubeconfig valid for {{adminKubeConfigExpiration}}</v-list-item-subtitle>
       </v-list-item-content>
       <v-list-item-action v-if="isGardenloginType" class="mx-0">
         <gardenlogin-info></gardenlogin-info>
       </v-list-item-action>
-      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable">
+      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable || isAdminKubeconfigType">
         <v-tooltip top>
           <template v-slot:activator="{ on }">
             <v-btn v-on="on" icon @click.native.stop="onDownload" color="action-button">
@@ -39,10 +38,10 @@ SPDX-License-Identifier: Apache-2.0
           <span>Download Kubeconfig</span>
         </v-tooltip>
       </v-list-item-action>
-      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable">
+      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable && !isAdminKubeconfigType">
         <copy-btn :clipboard-text="kubeconfig"></copy-btn>
       </v-list-item-action>
-      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable">
+      <v-list-item-action class="mx-0" v-if="isKubeconfigAvailable || isAdminKubeconfigType">
         <v-tooltip top>
           <template v-slot:activator="{ on }">
             <v-btn v-on="on" icon @click.native.stop="toggleKubeconfig" color="action-button">
@@ -52,11 +51,11 @@ SPDX-License-Identifier: Apache-2.0
           <span>{{kubeconfigVisibilityTitle}}</span>
         </v-tooltip>
       </v-list-item-action>
-      <v-list-item-action v-if="isStaticKubeconfigLoginType" class="mx-0">
+      <v-list-item-action v-if="isStaticKubeconfigType" class="mx-0">
         <static-token-kubeconfig-configuration :shootItem="shootItem"></static-token-kubeconfig-configuration>
       </v-list-item-action>
-      <v-list-item-action v-if="isAdminKubeconfigLoginType && !isKubeconfigAvailable" class="mx-0">
-        <admin-kube-config-request :shootItem="shootItem" @adminKubeConfig="onAdminKubeconfigReceived"></admin-kube-config-request>
+      <v-list-item-action v-if="isAdminKubeconfigType" class="mx-0">
+        <admin-kube-config-request :expirations="possibleAdminKubeconfigExpirationSettings" :shootItem="shootItem" @expirationUpdate="onExpirationUpdate"></admin-kube-config-request>
       </v-list-item-action>
     </v-list-item>
     <v-list-item v-if="kubeconfigExpansionPanel" key="expansion-gardenlogin-kubeconfig">
@@ -76,6 +75,10 @@ import StaticTokenKubeconfigConfiguration from '@/components/StaticTokenKubeconf
 import AdminKubeConfigRequest from '@/components/AdminKubeConfigRequest'
 import download from 'downloadjs'
 import { shootItem } from '@/mixins/shootItem'
+import { createAdminKubeconfig } from '@/utils/api'
+import { errorDetailsFromError } from '@/utils/error'
+import { mapState } from 'vuex'
+import filter from 'lodash/filter'
 
 export default {
   components: {
@@ -99,10 +102,14 @@ export default {
   data () {
     return {
       kubeconfigExpansionPanel: false,
-      adminKubeConfig: undefined
+      adminKubeConfigExpiration: '30m', // Default 30 minutes
+      adminKubeconfig: undefined
     }
   },
   computed: {
+    ...mapState([
+      'cfg'
+    ]),
     icon () {
       return this.showListIcon ? 'mdi-file' : ''
     },
@@ -111,12 +118,11 @@ export default {
         return this.shootInfo?.kubeconfigGardenlogin
       }
 
-      if (this.isStaticKubeconfigLoginType) {
+      if (this.isStaticKubeconfigType) {
         return this.shootInfo?.kubeconfig
       }
 
-      // Fall-through -> Admin kubeconfig type
-      return this.adminKubeConfig
+      return this.adminKubeconfig
     },
     isKubeconfigAvailable () {
       return !!this.kubeconfig
@@ -130,11 +136,22 @@ export default {
     isGardenloginType () {
       return this.type === 'gardenlogin'
     },
-    isStaticKubeconfigLoginType () {
+    isStaticKubeconfigType () {
       return this.type === 'token'
     },
-    isAdminKubeconfigLoginType () {
+    isAdminKubeconfigType () {
       return this.type === 'adminkubeconfig'
+    },
+    possibleAdminKubeconfigExpirationSettings () {
+      let expirations = ['30m', '1h', '3h', '6h', '12h', '1d', '3d', '7d']
+
+      if (this.cfg.shootAdminKubeconfig.maxExpirationSeconds) {
+        expirations = filter(expirations, expiration => {
+          return this.adminKubeConfigExpirationInSeconds(expiration) <= this.cfg.shootAdminKubeconfig.maxExpirationSeconds
+        })
+      }
+
+      return expirations
     },
     getQualifiedName () {
       const prefix = this.isGardenloginType ? 'kubeconfig-gardenlogin' : 'kubeconfig'
@@ -142,20 +159,57 @@ export default {
     }
   },
   methods: {
-    toggleKubeconfig () {
+    async createAdminKubeconfig () {
+      try {
+        const resp = await createAdminKubeconfig({
+          namespace: this.shootNamespace,
+          name: this.shootName,
+          data: {
+            expirationSeconds: this.adminKubeConfigExpirationInSeconds(this.adminKubeConfigExpiration)
+          }
+        })
+
+        this.adminKubeconfig = resp.data
+      } catch (err) {
+        const errorMessage = 'Could not request admin kubeconfig'
+        const errorDetails = errorDetailsFromError(err)
+        console.error(errorMessage, errorDetails.errorCode, errorDetails.detailedMessage, err)
+      }
+    },
+    async toggleKubeconfig () {
+      if (!this.kubeconfigExpansionPanel && this.isAdminKubeconfigType) {
+        await this.createAdminKubeconfig()
+      }
+
       this.kubeconfigExpansionPanel = !this.kubeconfigExpansionPanel
     },
     reset () {
       this.kubeconfigExpansionPanel = false
     },
-    onDownload () {
+    async onDownload () {
+      if (this.isAdminKubeconfigType) {
+        await this.createAdminKubeconfig()
+      }
+
       const kubeconfig = this.kubeconfig
       if (kubeconfig) {
         download(kubeconfig, this.getQualifiedName, 'text/yaml')
       }
     },
-    onAdminKubeconfigReceived (kubeconfig) {
-      this.adminKubeConfig = kubeconfig
+    async onExpirationUpdate (kubeconfigExpiration) {
+      if (this.adminKubeConfigExpiration !== kubeconfigExpiration) {
+        this.adminKubeconfig = undefined
+      }
+
+      this.adminKubeConfigExpiration = kubeconfigExpiration
+    },
+    adminKubeConfigExpirationInSeconds (durationAsString) {
+      const units = { d: 86400, h: 3600, m: 60 }
+      const regex = /(\d+)([dhm])/g
+      const match = regex.exec(durationAsString)
+      const seconds = parseInt(match[1]) * units[match[2]]
+
+      return seconds
     }
   },
   watch: {
