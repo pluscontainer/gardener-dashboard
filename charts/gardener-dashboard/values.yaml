@@ -178,6 +178,10 @@ global:
       features:
         terminalEnabled: false
         projectTerminalShortcutsEnabled: false
+
+      shootAdminKubeconfig:
+        enabled: true
+        maxExpirationSeconds: 86400
       # alert:
       #   type: error
       #   message: This is an **alert** banner

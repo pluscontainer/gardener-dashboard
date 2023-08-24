@@ -9,6 +9,7 @@
 const express = require('express')
 const { shoots } = require('../services')
 const { metricsRoute } = require('../middleware')
+const config = require('../config')
 
 const router = module.exports = express.Router({
   mergeParams: true
@@ -255,16 +256,18 @@ router.route('/:name/spec/seedName')
     }
   })
 
-router.route('/:name/adminkubeconfig')
-  .all(metricsMiddleware)
-  .put(async (req, res, next) => {
-    try {
-      const user = req.user
-      const namespace = req.params.namespace
-      const name = req.params.name
-      const expirationSeconds = req.body.expirationSeconds
-      res.send(await shoots.getAdminKubeconfig({ user, namespace, name, expirationSeconds }))
-    } catch (err) {
-      next(err)
-    }
-  })
+if (config.frontend.shootAdminKubeconfig && config.frontend.shootAdminKubeconfig.enabled) {
+  router.route('/:name/adminkubeconfig')
+    .all(metricsMiddleware)
+    .post(async (req, res, next) => {
+      try {
+        const user = req.user
+        const namespace = req.params.namespace
+        const name = req.params.name
+        const body = req.body
+        res.send(await shoots.createAdminKubeconfig({ user, namespace, name, body }))
+      } catch (err) {
+        next(err)
+      }
+    })
+}
