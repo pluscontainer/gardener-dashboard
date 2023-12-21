@@ -125,7 +125,7 @@ function shootListHierarchy (context, path) {
     component: PlaceholderComponent,
     children: [
       shootListRoute(context, ''),
-      newShootRoute(context, '+'),
+      newShootRoute(context, 'create'),
       newShootEditorRoute(context, '+/yaml'),
       shootItemHierarchy(context, ':name')
     ]

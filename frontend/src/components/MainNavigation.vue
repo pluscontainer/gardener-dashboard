@@ -583,7 +583,7 @@ export default {
 
     .main-menu {
       .active-item {
-        background-color: rgba(#fff, .3);
+        background-color: rgba(#000000, .3);
       }
     }
   }
