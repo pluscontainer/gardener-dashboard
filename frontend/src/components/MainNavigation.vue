@@ -16,6 +16,9 @@ SPDX-License-Identifier: Apache-2.0
         <div class="content center main-background darken-2">
           <v-btn @click.native.stop="setSidebar(!isActive)" icon class="float-right main-navigation-title--text ma-2">
             <v-icon>mdi-chevron-double-left</v-icon>
+            <v-tooltip>
+              <span>Create Cluster</span>
+            </v-tooltip>
           </v-btn>
           <a href="/">
             <img src="/static/assets/logo.svg" class="logo" alt="gardener logo">
