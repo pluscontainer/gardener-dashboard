@@ -344,6 +344,10 @@ export default {
             return 'Cluster running in DE-WEST-1 - Cologne'
           case 'prod2':
             return 'Cluster running in DE-NORTH-1 - Hamburg'
+          case 'prod3':
+            return 'Cluster running in DE-NORTH-2 - Hamburg'
+          case 'prod4':
+            return 'Cluster running in DE-WEST-2 - Dusseldorf'
         }
       } else {
         if (includes(this.regionsWithSeed, this.region)) {
