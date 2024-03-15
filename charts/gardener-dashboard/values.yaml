@@ -110,7 +110,7 @@ global:
     frontendConfig:
       productName": "PSKE"
       productSlogan": "Managed Kubernetes at Scale"
-      documentationURL": "https://docs.pske.get-cloud.io"
+      documentationURL": "https://docs.plusserver.com"
       supportURL": "https://www.plusserver.com/ueber-uns/plusserver-kontakt"
       landingPageUrl": "https://plusserver.com/pske"
       landingPageName": "Plusserver Kubernetes Engine"

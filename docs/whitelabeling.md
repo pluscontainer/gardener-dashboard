@@ -3,7 +3,7 @@ This document describes possibilities to customize the gardener dashboard
 as deployed on Kubernetes. This can help in offering whitelabeling features
 to customers.
 
-We assume one deployment of the dashboard for each customized or whitelabeled 
+We assume one deployment of the dashboard for each customized or whitelabeled
 gardener-dashboard. We strive for minimal modifications needed in the source
 code to allow for whitelabeling configurations.
 
@@ -12,7 +12,7 @@ Gardener-Dashboard is using the Vue.js-Framework and allows for using the
 Vue.js Theming options. For documentation see deployment/theming.md
 
 ## Logo
-The logo is served at `/static/assets/logo.svg` and can be found in the 
+The logo is served at `/static/assets/logo.svg` and can be found in the
 source at `/frontend/public/static/assets/logo.svg`. This is also changed
 with by the theming capabilities.
 
@@ -23,7 +23,7 @@ Available parameters are:
 {
   "productName": "PSKE",
   "productSlogan": "Managed Kubernetes at Scale",
-  "documentationURL": "https://docs.pske.get-cloud.io",
+  "documentationURL": "https://docs.plusserver.com",
   "supportURL": "https://www.plusserver.com/ueber-uns/plusserver-kontakt",
   "landingPageUrl": "https://plusserver.com/pske",
   "landingPageName": "Plusserver Kubernetes Engine",
@@ -37,5 +37,5 @@ as `/login-config-json`. You can see all parameters in the source at
 
 To avoid uneccessary network latency, the `login-config.json` is fetched
 by the Login-Page only and the values are then copied in the Browsers
-sessionStorage. This means that during development you might have to 
+sessionStorage. This means that during development you might have to
 logout and login again to see the changes reflected on the rendered pages.
