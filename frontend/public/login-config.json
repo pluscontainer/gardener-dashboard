@@ -1,7 +1,7 @@
 {
   "productName": "PSKE",
   "productSlogan": "Managed Kubernetes at Scale",
-  "documentationURL": "https://login.plusserver.com/en/documents/confluence",
+  "documentationURL": "https://docs.plusserver.com",
   "supportURL": "https://login.plusserver.com/en/login",
   "landingPageUrl": "https://plusserver.com/pske",
   "landingPageName": "Plusserver Kubernetes Engine",

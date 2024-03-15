@@ -144,7 +144,7 @@ export default {
       return this.cfg.productSlogan || 'Managed Kubernetes at Scale'
     },
     documentationURL () {
-      return this.cfg.documentationURL || 'https://docs.pske.get-cloud.io'
+      return this.cfg.documentationURL || 'https://docs.plusserver.com'
     },
     supportURL () {
       return this.cfg.supportURL || 'https://www.plusserver.com/ueber-uns/plusserver-kontakt'
